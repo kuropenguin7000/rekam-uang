@@ -1,150 +1,151 @@
-# Rekam Uang — Pelacak Uang Berbasis Chat
+# Rekam Uang — Chat-Based Money Tracker
 
-Aplikasi pencatat **pemasukan & pengeluaran** untuk pasar Indonesia: ketik
-transaksi dengan bahasa natural, AI mengklasifikasikan pemasukan/pengeluaran +
-kategori, dashboard menampilkan **arus kas**, dan asisten AI **"Wawasan"** memberi
-saran hemat. Antarmuka **Bahasa Indonesia** (dan Inggris).
+A conversational **income & expense tracker** for the Indonesian market: type
+transactions in natural language, AI classifies income/expense + category, a
+dashboard visualizes **cash flow**, and an AI **"Wawasan"** (Insights) assistant
+gives savings advice. UI in **Indonesian** (and English).
 
-> Nama produk **Rekam Uang**. Folder repo tetap `spend-wise` dan database/user/
-> container Postgres tetap `spendwise` — itu identitas infrastruktur, sengaja
-> tidak diubah.
+> Product name is **Rekam Uang**. The repo folder is still `spend-wise` and the
+> Postgres database/user/container are still `spendwise` — those are
+> infrastructure identifiers, intentionally left unchanged.
 
 **Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind
-v4 · Recharts · Prisma 6 + **PostgreSQL** (Docker) · `jose` (auth JWT-cookie) +
-Google OAuth · **Google Gemini** (`@google/genai`) · exceljs + pdf-lib (ekspor) ·
-Midtrans (mock).
+v4 · Recharts · Prisma 6 + **PostgreSQL** (Docker) · `jose` (JWT-cookie auth) +
+Google OAuth · **Google Gemini** (`@google/genai`) · exceljs + pdf-lib (export) ·
+Midtrans (mocked).
 
-## Prasyarat
+## Prerequisites
 
 - Node.js 20+
-- Docker (untuk PostgreSQL lokal)
+- Docker (for local PostgreSQL)
 
-## Menjalankan
+## Running
 
 ```bash
-docker compose up -d      # PostgreSQL di host port 5433 (container spendwise-db)
-npm install               # otomatis menjalankan `prisma generate` (postinstall)
-cp .env.example .env      # lalu isi kredensial (lihat "Variabel lingkungan")
-npm run db:push           # buat / selaraskan tabel di Postgres
+docker compose up -d      # PostgreSQL on host port 5433 (container spendwise-db)
+npm install               # also runs `prisma generate` (postinstall)
+cp .env.example .env      # then fill in credentials (see "Environment variables")
+npm run db:push           # create / sync tables in Postgres
 npm run dev               # http://localhost:3000
 ```
 
-> Gunakan `npm run dev`, **bukan** `npm start` — mode produksi memasang cookie
-> `Secure` yang tidak bertahan di http polos saat pengembangan lokal.
+> Use `npm run dev`, **not** `npm start` — production mode sets a `Secure` cookie
+> that won't persist over plain http during local development.
 
-### Kredensial minimum untuk masuk
+### Minimum credentials to sign in
 
-- **Login membutuhkan Google OAuth** (login demo sudah dihapus). Isi
-  `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`, lalu daftarkan
-  `${APP_URL}/api/auth/google/callback` sebagai *Authorized redirect URI* di
+- **Login requires Google OAuth** (demo login has been removed). Fill in
+  `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`, then register
+  `${APP_URL}/api/auth/google/callback` as an *Authorized redirect URI* in the
   Google Cloud Console.
-- **Gemini opsional** — tanpa `GEMINI_API_KEY`, aplikasi memakai parser/insight
-  **lokal** (regex) sebagai fallback, jadi tetap berjalan penuh.
-- **Midtrans di-mock** — biarkan `MIDTRANS_MOCK="true"` untuk alur pembayaran
-  simulasi (tanpa penagihan nyata).
-- **Akun master** — set `MASTER_EMAIL` ke emailmu untuk membuka semua fitur
-  (setara Pro tanpa batas).
+- **Gemini is optional** — without `GEMINI_API_KEY`, the app uses a **local**
+  regex parser/insights engine as a fallback, so it still runs end-to-end.
+- **Midtrans is mocked** — keep `MIDTRANS_MOCK="true"` for the simulated payment
+  flow (no real charges).
+- **Master account** — set `MASTER_EMAIL` to your email to unlock every feature
+  (equivalent to unlimited Pro).
 
-> DB lokal via [docker-compose.yml](docker-compose.yml) (Postgres di port **5433**
-> agar tak bentrok dengan Postgres lain di 5432). Hentikan dengan
-> `docker compose down` (tambah `-v` untuk menghapus datanya). Lihat data lewat
-> `npm run db:studio`, atau IntelliJ Database — Host `localhost`, Port `5433`,
-> Database/User/Password semuanya `spendwise`.
+> Local DB via [docker-compose.yml](docker-compose.yml) (Postgres on port **5433**
+> so it doesn't clash with another Postgres on 5432). Stop it with
+> `docker compose down` (add `-v` to delete its data). Inspect data with
+> `npm run db:studio`, or IntelliJ Database — Host `localhost`, Port `5433`,
+> Database/User/Password all `spendwise`.
 
-## Variabel lingkungan
+## Environment variables
 
-Lihat [.env.example](.env.example) untuk template lengkap.
+See [.env.example](.env.example) for the full template.
 
-| Variabel | Wajib? | Fungsi |
+| Variable | Required? | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | ya | Koneksi Postgres (default sudah cocok dengan docker-compose). |
-| `AUTH_SECRET` | ya | Kunci tanda tangan JWT sesi (cookie `sw_session`). |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ya (untuk login) | Kredensial Google OAuth. |
-| `APP_URL` | ya | Base URL publik; menentukan redirect OAuth (mis. URL tunnel/deploy). |
-| `MASTER_EMAIL` | opsional | Email akun master (semua fitur terbuka). |
-| `GEMINI_API_KEY` (+ `_2`/`_3`, `GEMINI_API_KEYS`) | opsional | Parsing/analisa AI; kosong → fallback lokal. Beberapa key = failover otomatis. |
-| `GEMINI_MODEL` | opsional | Default `gemini-2.5-flash`. |
-| `MIDTRANS_MOCK` | ya | `"true"` untuk pembayaran simulasi. |
-| `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` | opsional | Hanya bila `MIDTRANS_MOCK=false`. |
+| `DATABASE_URL` | yes | Postgres connection (default already matches docker-compose). |
+| `AUTH_SECRET` | yes | JWT session signing key (`sw_session` cookie). |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes (to sign in) | Google OAuth credentials. |
+| `APP_URL` | yes | Public base URL; drives the OAuth redirect (e.g. tunnel/deploy URL). |
+| `MASTER_EMAIL` | optional | Master account email (all features unlocked). |
+| `GEMINI_API_KEY` (+ `_2`/`_3`, `GEMINI_API_KEYS`) | optional | AI parsing/analysis; empty → local fallback. Multiple keys = automatic failover. |
+| `GEMINI_MODEL` | optional | Defaults to `gemini-2.5-flash`. |
+| `MIDTRANS_MOCK` | yes | `"true"` for the simulated payment flow. |
+| `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` | optional | Only when `MIDTRANS_MOCK=false`. |
 
-## Fitur
+## Features
 
-| Fitur | Lokasi |
+| Feature | Location |
 | --- | --- |
-| Chat catat transaksi (**pemasukan & pengeluaran**) | [ChatPanel.tsx](src/components/ChatPanel.tsx) → `POST /api/parse` |
-| Kartu struk **Edit / Konfirmasi / Batal** | [ReceiptCard.tsx](src/components/ReceiptCard.tsx) |
-| Dashboard arus kas (**Pemasukan / Pengeluaran / Selisih**), pie + grafik harian, filter periode | [Dashboard.tsx](src/components/Dashboard.tsx) |
-| Anggaran bulanan **+ per-kategori** | [CategoryBudgets.tsx](src/components/CategoryBudgets.tsx) |
-| **Kelola kategori** — rename/sembunyikan bawaan, tambah/edit/hapus custom | [CategoryManager.tsx](src/components/CategoryManager.tsx), [lib/categories.ts](src/lib/categories.ts) |
-| Edit & hapus transaksi | [EditTransactionModal.tsx](src/components/EditTransactionModal.tsx) |
-| **Notifikasi** (lonceng + log persisten) | [NotificationBell.tsx](src/components/NotificationBell.tsx), [lib/notifications.ts](src/lib/notifications.ts) |
-| Wawasan AI (saran hemat) | [InsightsPanel.tsx](src/components/InsightsPanel.tsx) → `POST /api/analyze` |
-| **Ekspor Excel / PDF / CSV** (Pro) | [ExportMenu.tsx](src/components/ExportMenu.tsx) → `GET /api/export`, [lib/export.ts](src/lib/export.ts) |
-| Login Google + sesi JWT | [login/page.tsx](src/app/login/page.tsx), [lib/google.ts](src/lib/google.ts), [lib/session.ts](src/lib/session.ts) |
-| Harga, langganan Pro, **perpanjangan & auto-downgrade** | [pricing/page.tsx](src/app/pricing/page.tsx), [api/billing](src/app/api/billing) |
-| **Dwibahasa (ID/EN)** + tema terang/gelap | [I18nProvider.tsx](src/components/I18nProvider.tsx), [ThemeProvider.tsx](src/components/ThemeProvider.tsx) |
+| Chat to log transactions (**income & expense**) | [ChatPanel.tsx](src/components/ChatPanel.tsx) → `POST /api/parse` |
+| **Edit / Confirm / Discard** receipt card | [ReceiptCard.tsx](src/components/ReceiptCard.tsx) |
+| Cash-flow dashboard (**Income / Expense / Net**), pie + daily charts, period filters | [Dashboard.tsx](src/components/Dashboard.tsx) |
+| Monthly budget **+ per-category budgets** | [CategoryBudgets.tsx](src/components/CategoryBudgets.tsx) |
+| **Category management** — rename/hide built-ins, add/edit/delete custom | [CategoryManager.tsx](src/components/CategoryManager.tsx), [lib/categories.ts](src/lib/categories.ts) |
+| Edit & delete transactions | [EditTransactionModal.tsx](src/components/EditTransactionModal.tsx) |
+| **Notifications** (bell + persistent log) | [NotificationBell.tsx](src/components/NotificationBell.tsx), [lib/notifications.ts](src/lib/notifications.ts) |
+| AI insights (savings advice) | [InsightsPanel.tsx](src/components/InsightsPanel.tsx) → `POST /api/analyze` |
+| **Excel / PDF / CSV export** (Pro) | [ExportMenu.tsx](src/components/ExportMenu.tsx) → `GET /api/export`, [lib/export.ts](src/lib/export.ts) |
+| Google login + JWT session | [login/page.tsx](src/app/login/page.tsx), [lib/google.ts](src/lib/google.ts), [lib/session.ts](src/lib/session.ts) |
+| Pricing, Pro subscription, **renewal & auto-downgrade** | [pricing/page.tsx](src/app/pricing/page.tsx), [api/billing](src/app/api/billing) |
+| **Bilingual (ID/EN)** + light/dark theme | [I18nProvider.tsx](src/components/I18nProvider.tsx), [ThemeProvider.tsx](src/components/ThemeProvider.tsx) |
 
-Rute aplikasi dilindungi oleh [src/proxy.ts](src/proxy.ts) (middleware Next 16);
-rute publik: `/login`, `/pricing`, `/terms`.
+App routes are protected by [src/proxy.ts](src/proxy.ts) (Next 16 middleware);
+public routes: `/login`, `/pricing`, `/terms`.
 
-## Paket & batas
+## Plans & limits
 
-Didefinisikan di [src/lib/plans.ts](src/lib/plans.ts):
+Defined in [src/lib/plans.ts](src/lib/plans.ts):
 
-- **Gratis** — 5 parsing AI/hari, 1 analisa AI/hari, filter mingguan & bulanan.
-- **Pro** (Rp 49.000/bln atau Rp 490.000/thn) — parsing & analisa AI tanpa batas,
-  deteksi langganan/benchmark, filter periode tanggal kustom, ekspor Excel/PDF/CSV.
-- **Master** (`MASTER_EMAIL`) — semua fitur terbuka tanpa batas.
+- **Free** — 5 AI parses/day, 1 AI analysis/day, weekly & monthly filters.
+- **Pro** (Rp 49,000/mo or Rp 490,000/yr) — unlimited AI parsing & analysis,
+  subscription/benchmark detection, custom date-range filters, Excel/PDF/CSV
+  export.
+- **Master** (`MASTER_EMAIL`) — everything unlocked, no limits.
 
-Batas ditegakkan per hari di server ([lib/usage.ts](src/lib/usage.ts)), plus cache
-hasil per-signature, cooldown per-request, dan batas keras harian untuk semua.
+Limits are enforced per-day on the server ([lib/usage.ts](src/lib/usage.ts)), plus
+a per-signature result cache, per-request cooldown, and a hard daily cap for all.
 
 ## AI: Gemini + failover
 
-Parsing & analisa memakai `gemini-2.5-flash` via `@google/genai` (lihat
+Parsing & analysis use `gemini-2.5-flash` via `@google/genai` (see
 [lib/ai.ts](src/lib/ai.ts)):
 
-- **Keluaran JSON terstruktur** (`responseSchema`) dengan *thinking* dinonaktifkan
-  → hemat token, tanpa prosa.
-- **Failover multi-key** — membaca `GEMINI_API_KEY` + `_2`/`_3` (dan opsional
-  `GEMINI_API_KEYS` dipisah koma). Saat kena kuota/limit (429), overload (503),
-  atau key tak valid (401/403), otomatis berpindah ke key berikutnya.
-- **Parse** mengklasifikasikan pemasukan vs pengeluaran, memilih kategori bawaan,
-  mengekstrak merchant/sumber, dan menyelesaikan **tanggal relatif** ("kemarin",
-  "senin kemarin", "3 hari lalu" …).
-- **Analisa** mengirim ringkasan teragregasi, bukan seluruh baris transaksi.
-- **Fallback lokal** ([lib/parser.ts](src/lib/parser.ts), [lib/insights.ts](src/lib/insights.ts))
-  saat semua key gagal atau tidak diset — aplikasi tetap jalan.
+- **Structured JSON output** (`responseSchema`) with thinking disabled → token
+  efficient, no prose.
+- **Multi-key failover** — reads `GEMINI_API_KEY` + `_2`/`_3` (and an optional
+  comma-separated `GEMINI_API_KEYS`). On quota/rate-limit (429), overload (503),
+  or an invalid key (401/403), it rotates to the next key automatically.
+- **Parse** classifies income vs expense, picks a built-in category, extracts the
+  merchant/source, and resolves **relative dates** ("kemarin", "senin kemarin",
+  "3 hari lalu" …).
+- **Analyze** sends a pre-aggregated summary, not every transaction row.
+- **Local fallback** ([lib/parser.ts](src/lib/parser.ts), [lib/insights.ts](src/lib/insights.ts))
+  when all keys fail or none are set — the app keeps working.
 
 ## API
 
-| Route | Fungsi |
+| Route | Purpose |
 | --- | --- |
-| `POST /api/auth/google` · `/google/callback` · `POST /api/auth/logout` | Autentikasi Google + sesi |
-| `GET/PATCH /api/me` | Profil, entitlement, pemakaian, anggaran, kategori |
-| `GET/POST /api/transactions`, `PATCH/DELETE /api/transactions/[id]` | CRUD transaksi |
-| `POST/PATCH/DELETE /api/categories` | Kelola kategori (custom + override bawaan) |
-| `POST /api/parse` | Parse transaksi (gated + dihitung) |
-| `POST /api/analyze` | Wawasan AI (gated + dihitung) |
-| `GET /api/export` | Ekspor Excel/PDF/CSV (Pro) |
-| `POST /api/billing/checkout` · `/webhook` · `/expire` | Pembayaran Midtrans (mock) + auto-downgrade |
+| `POST /api/auth/google` · `/google/callback` · `POST /api/auth/logout` | Google auth + session |
+| `GET/PATCH /api/me` | Profile, entitlements, usage, budgets, categories |
+| `GET/POST /api/transactions`, `PATCH/DELETE /api/transactions/[id]` | Transaction CRUD |
+| `POST/PATCH/DELETE /api/categories` | Manage categories (custom + built-in overrides) |
+| `POST /api/parse` | Parse a transaction (gated + metered) |
+| `POST /api/analyze` | AI insights (gated + metered) |
+| `GET /api/export` | Export Excel/PDF/CSV (Pro) |
+| `POST /api/billing/checkout` · `/webhook` · `/expire` | Midtrans payment (mock) + auto-downgrade |
 
-## Mengaktifkan integrasi nyata
+## Enabling real integrations
 
-- **Google OAuth** — isi `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`; tambahkan
-  `${APP_URL}/api/auth/google/callback` sebagai redirect URI.
-- **Gemini** — isi `GEMINI_API_KEY` (dan `_2`/`_3` untuk failover). Ganti
-  `GEMINI_MODEL` bila perlu.
-- **Midtrans** — set `MIDTRANS_MOCK=false` + `MIDTRANS_SERVER_KEY`, lalu ganti isi
-  `createTransaction()` di [lib/midtrans.ts](src/lib/midtrans.ts) dengan panggilan
-  Snap API (kontrak webhook sudah sesuai Midtrans).
-- **PostgreSQL produksi** — arahkan `DATABASE_URL` ke Postgres terkelola/VPS.
-  Skema disinkronkan dengan `npx prisma db push` (proyek ini tanpa file migrasi).
+- **Google OAuth** — fill in `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`; add
+  `${APP_URL}/api/auth/google/callback` as a redirect URI.
+- **Gemini** — set `GEMINI_API_KEY` (and `_2`/`_3` for failover). Override
+  `GEMINI_MODEL` if needed.
+- **Midtrans** — set `MIDTRANS_MOCK=false` + `MIDTRANS_SERVER_KEY`, then replace
+  the body of `createTransaction()` in [lib/midtrans.ts](src/lib/midtrans.ts) with
+  a Snap API call (the webhook contract already matches Midtrans).
+- **Production PostgreSQL** — point `DATABASE_URL` at a managed Postgres/VPS. The
+  schema is synced with `npx prisma db push` (this project has no migration files).
 
-## Berbagi & deploy
+## Sharing & deploy
 
-- **Sharing publik cepat** — Cloudflare quick tunnel:
-  `cloudflared tunnel --url http://localhost:3000`. Tiap run memberi URL acak baru
-  → perbarui `APP_URL`, restart dev, dan tambahkan ulang redirect URI Google.
-- **Hosting gratis** — Vercel (app) + Neon (Postgres); perlu penyesuaian
-  `binaryTargets`/`directUrl` Prisma dan redirect Google untuk URL deploy.
+- **Quick public sharing** — Cloudflare quick tunnel:
+  `cloudflared tunnel --url http://localhost:3000`. Each run gives a new random URL
+  → update `APP_URL`, restart dev, and re-add the Google redirect URI.
+- **Free hosting** — Vercel (app) + Neon (Postgres); needs Prisma
+  `binaryTargets`/`directUrl` tweaks and the Google redirect for the deploy URL.
