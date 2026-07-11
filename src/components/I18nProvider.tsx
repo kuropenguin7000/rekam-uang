@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -48,13 +49,25 @@ export function I18nProvider({
     const dir = dirOf(next);
     document.documentElement.lang = next;
     document.documentElement.dir = dir;
-    // persist for SSR (cookie) so html lang/dir is correct on next load
-    document.cookie = `${LOCALE_COOKIE}=${next}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
     try {
       localStorage.setItem(LOCALE_COOKIE, next);
     } catch {
       /* ignore */
     }
+  }, []);
+
+  // Static export: the prerendered HTML is always in the default locale, so
+  // restore the visitor's stored preference after hydration (an effect, not a
+  // state initializer, to avoid hydration mismatches).
+  useEffect(() => {
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(LOCALE_COOKIE);
+    } catch {
+      /* ignore */
+    }
+    if (isLocale(stored) && stored !== initialLocale) setLocale(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const t = useCallback(

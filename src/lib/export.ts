@@ -1,9 +1,13 @@
-import "server-only";
 import ExcelJS from "exceljs";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { formatCurrency } from "./format";
 import type { Locale } from "@/i18n/config";
 import type { Transaction } from "./types";
+
+// Runs in the BROWSER (static hosting has no server): exceljs resolves to its
+// bundled browser build via the package's "browser" field, and pdf-lib is
+// browser-first. Import this module dynamically so the ~1 MB exceljs bundle
+// only loads when the user actually exports.
 
 export type ExportFormat = "csv" | "xlsx" | "pdf";
 
@@ -140,7 +144,7 @@ export function buildCsv(data: ExportData): string {
 // XLSX (exceljs)
 // --------------------------------------------------------------------------
 
-export async function buildXlsx(data: ExportData): Promise<Buffer> {
+export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   const L = LABELS[data.locale];
   const summary = summarize(data);
   const wb = new ExcelJS.Workbook();
@@ -216,8 +220,8 @@ export async function buildXlsx(data: ExportData): Promise<Buffer> {
     },
   ];
 
-  const buf = await wb.xlsx.writeBuffer();
-  return Buffer.from(buf);
+  // In the browser build writeBuffer resolves to an ArrayBuffer.
+  return (await wb.xlsx.writeBuffer()) as unknown as ArrayBuffer;
 }
 
 // --------------------------------------------------------------------------
@@ -396,8 +400,25 @@ export async function buildPdf(data: ExportData): Promise<Uint8Array> {
 export async function buildExport(
   format: ExportFormat,
   data: ExportData
-): Promise<{ body: Buffer | Uint8Array | string; contentType: string }> {
+): Promise<{ body: ArrayBuffer | Uint8Array | string; contentType: string }> {
   if (format === "csv") return { body: buildCsv(data), contentType: MIME.csv };
   if (format === "pdf") return { body: await buildPdf(data), contentType: MIME.pdf };
   return { body: await buildXlsx(data), contentType: MIME.xlsx };
+}
+
+/** Build the export in the browser and trigger a file download. */
+export async function downloadExport(
+  format: ExportFormat,
+  data: ExportData
+): Promise<void> {
+  const { body, contentType } = await buildExport(format, data);
+  const blob = new Blob([body as BlobPart], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = exportFilename(format, data.generatedAt);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

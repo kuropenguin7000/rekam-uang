@@ -2,6 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { categoryDisplayName } from "@/lib/categoryName";
+import { effectiveCategories } from "@/lib/categories";
+import { clientAuth } from "@/lib/firebaseClient";
+import * as db from "@/lib/firestore";
 import type { UserCategory } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
 
@@ -21,8 +24,8 @@ const COLORS = [
 /**
  * Manage categories: rename/hide the 8 built-ins, and add/edit/delete custom
  * ones. Deleting a custom category moves its transactions to "Lainnya".
- * Self-contained (fetches /api/me) so it works on the account page, which is
- * outside the dashboard store.
+ * Self-contained (reads Firestore directly) so it works on the account page,
+ * which is outside the dashboard store.
  */
 export function CategoryManager() {
   const { t } = useI18n();
@@ -36,24 +39,21 @@ export function CategoryManager() {
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
-    const r = await fetch("/api/me", { cache: "no-store" });
-    if (r.ok) {
-      const d = await r.json();
-      setCategories(d.user?.categories ?? []);
-    }
+    const uid = clientAuth().currentUser?.uid;
+    if (!uid) return;
+    const doc = await db.getUserDoc(uid);
+    setCategories(effectiveCategories(doc?.categoriesConfig ?? null));
   }, []);
 
   useEffect(() => {
     reload();
   }, [reload]);
 
-  async function api(method: string, body: unknown) {
+  async function run(action: (uid: string) => Promise<void>) {
+    const uid = clientAuth().currentUser?.uid;
+    if (!uid) return;
     setBusy(true);
-    await fetch("/api/categories", {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    await action(uid);
     await reload();
     setBusy(false);
   }
@@ -61,7 +61,9 @@ export function CategoryManager() {
   async function add() {
     const label = newLabel.trim();
     if (!label) return;
-    await api("POST", { label, icon: newIcon || "🏷️", color: newColor });
+    await run((uid) =>
+      db.addCategory(uid, { label, icon: newIcon || "🏷️", color: newColor })
+    );
     setAdding(false);
     setNewLabel("");
     setNewIcon("🏷️");
@@ -69,13 +71,13 @@ export function CategoryManager() {
   }
 
   async function saveEdit(id: string) {
-    await api("PATCH", { id, label: editLabel.trim() });
+    await run((uid) => db.updateCategory(uid, id, { label: editLabel.trim() }));
     setEditId(null);
   }
 
   async function remove(id: string, name: string) {
     if (!window.confirm(t("cat.deleteConfirm", { name }))) return;
-    await api("DELETE", { id });
+    await run((uid) => db.deleteCategory(uid, id));
   }
 
   return (
@@ -194,7 +196,9 @@ export function CategoryManager() {
                   </button>
                   {c.builtin ? (
                     <button
-                      onClick={() => api("PATCH", { id: c.id, hidden: !c.hidden })}
+                      onClick={() =>
+                        run((uid) => db.updateCategory(uid, c.id, { hidden: !c.hidden }))
+                      }
                       aria-label={t("cat.hide")}
                       className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
                     >

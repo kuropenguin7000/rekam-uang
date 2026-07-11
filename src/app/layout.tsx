@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/components/I18nProvider";
-import { DEFAULT_LOCALE, LOCALE_COOKIE, dirOf, isLocale } from "@/i18n/config";
+import { DEFAULT_LOCALE, dirOf } from "@/i18n/config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,25 +18,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Rekam Uang",
   description:
-    "Rekam uang masuk & keluar lewat chat. Kategori otomatis, dashboard visual, dan wawasan hemat dari AI.",
+    "Catat uang masuk & keluar dengan mudah. Dashboard visual, anggaran per kategori, dan saran hemat otomatis.",
 };
 
 // Set the theme class before paint to avoid a flash of the wrong theme.
 const themeScript = `(function(){try{var t=localStorage.getItem('spendwise.theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}if(t==='dark'){document.documentElement.classList.add('dark');}}catch(e){}})();`;
 
-export default async function RootLayout({
+// Static export: there is no request to read a locale cookie from, so the
+// shell renders in the default locale and I18nProvider switches to the
+// visitor's stored preference on the client right after hydration.
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const cookieStore = await cookies();
-  const cookieLocale = cookieStore.get(LOCALE_COOKIE)?.value;
-  const locale = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
-
   return (
     <html
-      lang={locale}
-      dir={dirOf(locale)}
+      lang={DEFAULT_LOCALE}
+      dir={dirOf(DEFAULT_LOCALE)}
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
@@ -45,7 +43,7 @@ export default async function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <I18nProvider initialLocale={locale}>
+        <I18nProvider initialLocale={DEFAULT_LOCALE}>
           <ThemeProvider>{children}</ThemeProvider>
         </I18nProvider>
       </body>

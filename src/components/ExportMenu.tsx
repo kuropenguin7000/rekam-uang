@@ -1,36 +1,23 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { categoryDisplayName } from "@/lib/categoryName";
+import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 
 type Fmt = "xlsx" | "pdf" | "csv";
 
-function triggerDownload(url: string) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.rel = "noopener";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
 /**
- * Export control for the dashboard. Pro/master users get a dropdown to download
- * the current view as Excel, PDF or CSV (the server enforces the entitlement
- * too). Free users see a lock that points to pricing.
+ * Export control for the dashboard: a dropdown to download the current view as
+ * Excel, PDF or CSV. Files are generated in the browser from store data (the
+ * app is a static export — there is no server); the heavy builders load on
+ * demand via a dynamic import.
  */
-export function ExportMenu({
-  from,
-  to,
-  canExport,
-}: {
-  from?: string;
-  to?: string;
-  canExport: boolean;
-}) {
-  const { t } = useI18n();
+export function ExportMenu({ from, to }: { from?: string; to?: string }) {
+  const { t, locale } = useI18n();
+  const { user, transactions, categories } = useExpenses();
   const [open, setOpen] = useState(false);
+  const [building, setBuilding] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,23 +29,36 @@ export function ExportMenu({
     return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  if (!canExport) {
-    return (
-      <Link
-        href="/pricing"
-        className="inline-flex items-center gap-1.5 rounded-xl border border-border px-3 py-1.5 text-sm font-medium text-muted/70 hover:text-primary"
-      >
-        {t("dash.export")} 🔒
-      </Link>
-    );
-  }
-
-  function download(fmt: Fmt) {
-    const params = new URLSearchParams({ format: fmt });
-    if (from) params.set("from", from);
-    if (to) params.set("to", to);
-    triggerDownload(`/api/export?${params.toString()}`);
-    setOpen(false);
+  async function download(fmt: Fmt) {
+    if (!user || building) return;
+    setBuilding(true);
+    try {
+      const { downloadExport } = await import("@/lib/export");
+      // Expense-only report over the active date window, newest first (the
+      // store list is already ordered by date desc, createdAt desc).
+      const rows = transactions.filter(
+        (tx) =>
+          tx.type !== "income" &&
+          (!from || tx.date >= from) &&
+          (!to || tx.date <= to)
+      );
+      const categoryNames: Record<string, string> = {};
+      for (const c of categories) {
+        categoryNames[c.id] = categoryDisplayName(c, t);
+      }
+      await downloadExport(fmt, {
+        transactions: rows,
+        locale,
+        account: { name: user.name, email: user.email },
+        generatedAt: new Date(),
+        from,
+        to,
+        categoryNames,
+      });
+    } finally {
+      setBuilding(false);
+      setOpen(false);
+    }
   }
 
   const items: { fmt: Fmt; label: string; icon: string }[] = [
@@ -95,7 +95,8 @@ export function ExportMenu({
             <button
               key={it.fmt}
               onClick={() => download(it.fmt)}
-              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-muted"
+              disabled={building}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-muted disabled:opacity-50"
             >
               <span>{it.icon}</span>
               {it.label}

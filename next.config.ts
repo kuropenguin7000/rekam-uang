@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Static export — the app is plain files on Firebase Hosting (free plan);
+  // Auth + Firestore are accessed from the browser, guarded by security rules.
+  output: "export",
   // Hide the floating Next.js dev-tools indicator (the circular badge that
   // appeared at the bottom-left in development).
   devIndicators: false,

@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+} from "firebase/auth";
+import { clientAuth, firebaseConfigured } from "@/lib/firebaseClient";
 import { GoogleIcon } from "@/components/icons";
 import { BrandMark } from "@/components/Logo";
 import { useI18n } from "@/components/I18nProvider";
@@ -10,16 +16,31 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 export default function LoginPage() {
   const { t } = useI18n();
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
+  // Already signed in (the Firebase SDK persists the session) → into the app.
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const err = params.get("error");
-    if (err === "oauth") {
-      setError(t("login.errOauth"));
-    } else if (err === "nogoogle") {
+    if (!firebaseConfigured()) return;
+    return onAuthStateChanged(clientAuth(), (u) => {
+      if (u) window.location.replace("/");
+    });
+  }, []);
+
+  async function signIn() {
+    if (!firebaseConfigured()) {
       setError(t("login.errNoGoogle"));
+      return;
     }
-  }, [t]);
+    setBusy(true);
+    setError(null);
+    try {
+      await signInWithPopup(clientAuth(), new GoogleAuthProvider());
+      window.location.replace("/");
+    } catch {
+      setError(t("login.errOauth"));
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="grid min-h-screen place-items-center px-4">
@@ -40,13 +61,14 @@ export default function LoginPage() {
             </p>
           )}
 
-          <a
-            href="/api/auth/google"
-            className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition hover:bg-surface-muted"
+          <button
+            onClick={signIn}
+            disabled={busy}
+            className="flex w-full items-center justify-center gap-3 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-semibold transition hover:bg-surface-muted disabled:opacity-60"
           >
             <GoogleIcon />
             {t("login.google")}
-          </a>
+          </button>
 
           <p className="mt-4 text-center text-xs text-muted">
             {t("login.termsPre")}

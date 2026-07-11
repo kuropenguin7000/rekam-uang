@@ -34,9 +34,16 @@ yarn-error.log*
 .env*
 !.env.example
 
-# prisma local sqlite db
-/prisma/*.db
-/prisma/*.db-journal
+# service-account keys and other local secrets
+/.secrets/
+
+# local Claude Code tooling (launch config, scheduled-push script/log)
+/.claude/
+
+# firebase
+firebase-debug.log
+firestore-debug.log
+.firebase/
 
 # vercel
 .vercel

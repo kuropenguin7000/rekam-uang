@@ -12,7 +12,7 @@ import {
   type NotificationSeverity,
 } from "@/lib/notifications";
 
-const LOG_STORAGE_KEY = "sw_notif_log";
+const LOG_STORAGE_KEY = "sw_notif_log_v2";
 /** Keep at most this many notifications; older ones are dropped (FIFO). */
 const MAX_ITEMS = 20;
 
@@ -73,7 +73,7 @@ function saveLog(log: LogEntry[]) {
 
 /**
  * Header notification bell. Alerts are derived from the live store (transactions
- * + budget + plan) via {@link computeNotifications}, then *materialised* into a
+ * + budgets) via {@link computeNotifications}, then *materialised* into a
  * persistent log: each newly-active alert is appended once, the list is capped
  * at {@link MAX_ITEMS} (oldest dropped), and entries stay after being read (just
  * dimmed). The badge counts unread.
@@ -100,9 +100,6 @@ export function NotificationBell() {
   const notifications = useMemo(() => {
     if (!user) return [];
     return computeNotifications({
-      plan: user.plan,
-      role: user.role,
-      planExpiresAt: user.planExpiresAt ?? null,
       budget,
       dailyBudget: user.dailyBudget,
       transactions,

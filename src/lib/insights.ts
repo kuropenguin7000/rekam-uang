@@ -19,17 +19,19 @@ function catLabel(locale: Locale, id: CategoryId): string {
 }
 
 /**
- * Mock "Analyze My Spending" engine (PRD Workflow C). Inspects the logs for
- * anomalies, subscription traps and benchmark drift, returning concrete tips in
- * the requested language. Used as the local fallback when no Gemini key is set.
+ * Rule-based insights engine. Inspects the logs for anomalies, subscription
+ * traps and benchmark drift, returning concrete tips in the requested language.
  */
 export function generateInsights(
-  transactions: Transaction[],
+  allTransactions: Transaction[],
   budget: number,
   locale: Locale = "id"
 ): Insight[] {
   const en = locale === "en";
   const insights: Insight[] = [];
+
+  // Insights are about spending; income never counts against budgets.
+  const transactions = allTransactions.filter((t) => t.type !== "income");
 
   if (transactions.length === 0) {
     return [
@@ -38,8 +40,8 @@ export function generateInsights(
         kind: "tip",
         title: en ? "No data yet" : "Belum ada data",
         detail: en
-          ? "Log a few expenses in the chat and run the analysis again to get personalised savings advice."
-          : "Catat beberapa pengeluaran lewat chat lalu jalankan analisa lagi untuk mendapatkan saran hemat yang personal.",
+          ? "Add a few expenses with the Add button and check back here for personalised savings advice."
+          : "Catat beberapa pengeluaran lewat tombol Tambah, lalu kembali ke sini untuk saran hemat yang personal.",
       },
     ];
   }

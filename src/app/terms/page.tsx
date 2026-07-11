@@ -26,7 +26,7 @@ const CONTENT: Record<Locale, TermsContent> = {
     sections: [
       {
         h: "1. Tentang Layanan",
-        p: "Rekam Uang adalah aplikasi pencatat pengeluaran pribadi. Kamu mencatat pengeluaran lewat chat, melihat ringkasan di dashboard, dan mendapat wawasan hemat dari AI. Layanan disediakan apa adanya dan dapat berubah sewaktu-waktu.",
+        p: "Rekam Uang adalah aplikasi pencatat pengeluaran pribadi. Kamu mencatat pemasukan dan pengeluaran secara manual, melihat ringkasan di dashboard, dan mendapat saran hemat otomatis. Layanan disediakan apa adanya dan dapat berubah sewaktu-waktu.",
       },
       {
         h: "2. Akun & Masuk",
@@ -34,26 +34,22 @@ const CONTENT: Record<Locale, TermsContent> = {
       },
       {
         h: "3. Data & Privasi",
-        p: "Kami menyimpan data pengeluaran yang kamu catat serta informasi dasar dari Google (nama, email, foto profil). Teks yang kamu masukkan dapat dikirim ke penyedia AI (Google Gemini) untuk diproses dan dianalisa. Kami tidak menjual datamu, dan kamu dapat menghapus transaksimu kapan saja di dalam aplikasi.",
+        p: "Kami menyimpan data transaksi yang kamu catat serta informasi dasar dari Google (nama, email, foto profil). Kami tidak menjual datamu, dan kamu dapat menghapus transaksimu kapan saja di dalam aplikasi.",
       },
       {
-        h: "4. Langganan & Pembayaran",
-        p: "Paket Pro membuka fitur AI tanpa batas dan fitur tambahan. Pada versi pratinjau ini, pembayaran disimulasikan (mode demo Midtrans) dan tidak ada penagihan nyata. Harga dapat berubah.",
+        h: "4. Penggunaan yang Wajar",
+        p: "Jangan menyalahgunakan layanan, mencoba merusaknya, atau menggunakannya untuk hal yang melanggar hukum.",
       },
       {
-        h: "5. Penggunaan yang Wajar",
-        p: "Jangan menyalahgunakan layanan, mencoba merusaknya, atau menggunakannya untuk hal yang melanggar hukum. Penggunaan AI memiliki batas wajar harian untuk menjaga ketersediaan layanan.",
+        h: "5. Penafian",
+        p: "Rekam Uang adalah alat bantu anggaran, bukan nasihat keuangan. Saran otomatis bisa saja tidak akurat. Kami tidak bertanggung jawab atas keputusan yang kamu ambil berdasarkan aplikasi ini. Layanan disediakan tanpa jaminan apa pun.",
       },
       {
-        h: "6. Penafian",
-        p: "Rekam Uang adalah alat bantu anggaran, bukan nasihat keuangan. Wawasan AI bisa saja tidak akurat. Kami tidak bertanggung jawab atas keputusan yang kamu ambil berdasarkan aplikasi ini. Layanan disediakan tanpa jaminan apa pun.",
-      },
-      {
-        h: "7. Perubahan",
+        h: "6. Perubahan",
         p: "Kami dapat memperbarui layanan dan ketentuan ini dari waktu ke waktu. Dengan terus menggunakan Rekam Uang, kamu dianggap menyetujui versi terbaru.",
       },
       {
-        h: "8. Kontak",
+        h: "7. Kontak",
         p: "Ada pertanyaan tentang ketentuan ini? Hubungi kami di support@rekamuang.app.",
       },
     ],
@@ -67,7 +63,7 @@ const CONTENT: Record<Locale, TermsContent> = {
     sections: [
       {
         h: "1. About the Service",
-        p: "Rekam Uang is a personal expense tracker. You log expenses by chatting, view a dashboard, and get AI savings insights. The service is provided as-is and may change at any time.",
+        p: "Rekam Uang is a personal expense tracker. You log income and expenses manually, view a dashboard, and get automatic savings insights. The service is provided as-is and may change at any time.",
       },
       {
         h: "2. Accounts & Sign-in",
@@ -75,26 +71,22 @@ const CONTENT: Record<Locale, TermsContent> = {
       },
       {
         h: "3. Data & Privacy",
-        p: "We store the expense entries you create and basic profile information from Google (name, email, avatar). Text you enter may be sent to our AI provider (Google Gemini) to parse and analyze it. We do not sell your data, and you can delete your transactions at any time inside the app.",
+        p: "We store the transactions you create and basic profile information from Google (name, email, avatar). We do not sell your data, and you can delete your transactions at any time inside the app.",
       },
       {
-        h: "4. Subscriptions & Payments",
-        p: "The Pro plan unlocks unlimited AI and extra features. In this preview, payments are simulated (Midtrans demo mode) and no real charges occur. Pricing may change.",
+        h: "4. Acceptable Use",
+        p: "Do not misuse the service, attempt to break it, or use it for anything unlawful.",
       },
       {
-        h: "5. Acceptable Use",
-        p: "Do not misuse the service, attempt to break it, or use it for anything unlawful. AI usage has fair daily limits to keep the service available for everyone.",
+        h: "5. Disclaimer",
+        p: "Rekam Uang is a budgeting aid, not financial advice. Automatic insights may be inaccurate. We are not liable for decisions you make based on the app. The service is provided without warranties of any kind.",
       },
       {
-        h: "6. Disclaimer",
-        p: "Rekam Uang is a budgeting aid, not financial advice. AI insights may be inaccurate. We are not liable for decisions you make based on the app. The service is provided without warranties of any kind.",
-      },
-      {
-        h: "7. Changes",
+        h: "6. Changes",
         p: "We may update the service and these terms from time to time. Continuing to use Rekam Uang means you accept the latest version.",
       },
       {
-        h: "8. Contact",
+        h: "7. Contact",
         p: "Questions about these terms? Reach us at support@rekamuang.app.",
       },
     ],

@@ -1,6 +1,5 @@
 import type { MessageKey } from "@/i18n/messages";
 import { daysAgoISO, formatCurrency, todayISO } from "./format";
-import type { PlanId, Role } from "./plans";
 
 export type NotificationSeverity = "danger" | "warning" | "info" | "success";
 
@@ -21,10 +20,6 @@ export interface AppNotification {
 }
 
 export interface NotificationInput {
-  plan: PlanId;
-  role: Role;
-  /** ISO string for when the paid period ends, or null. */
-  planExpiresAt: string | null;
   /** monthly budget in IDR */
   budget: number;
   /** raw daily budget setting (0 = auto = budget / 30) */
@@ -39,13 +34,8 @@ export interface NotificationInput {
   categoryBudgets?: Record<string, number>;
   /** resolves a category id to its localized name (for the alert text) */
   categoryLabel?: (id: string) => string;
-  /** injectable clock for testing; defaults to now */
-  now?: Date;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
-/** Warn this many days before the paid period ends. */
-const ENDING_SOON_DAYS = 7;
 /** Flag the monthly budget once spending crosses this fraction of it. */
 const MONTHLY_NEAR_PCT = 0.8;
 
@@ -57,7 +47,7 @@ const SEVERITY_RANK: Record<NotificationSeverity, number> = {
 };
 
 /**
- * Derive the active notifications for a user from their plan + spending.
+ * Derive the active notifications for a user from their spending.
  * Pure and side-effect free so it can be unit-tested and reused anywhere.
  *
  * Budget math mirrors the dashboard: the "monthly" window is the rolling last
@@ -65,54 +55,7 @@ const SEVERITY_RANK: Record<NotificationSeverity, number> = {
  * the budget bar the user already sees.
  */
 export function computeNotifications(input: NotificationInput): AppNotification[] {
-  const now = input.now ?? new Date();
   const out: AppNotification[] = [];
-
-  // --- Subscription expiry ---
-  if (input.plan === "pro" && input.planExpiresAt) {
-    const expires = new Date(input.planExpiresAt);
-    const msLeft = expires.getTime() - now.getTime();
-    const daysLeft = Math.ceil(msLeft / DAY_MS);
-
-    if (msLeft <= 0) {
-      // Brief window before the auto-downgrade job flips the plan to free.
-      out.push({
-        id: "sub-expired",
-        severity: "danger",
-        icon: "⛔",
-        titleKey: "notif.subExpired.title",
-        bodyKey: "notif.subExpired.body",
-        params: {},
-        action: { labelKey: "notif.renew", href: "/pricing?renew=1" },
-      });
-    } else if (daysLeft <= ENDING_SOON_DAYS) {
-      out.push({
-        id: "sub-ending",
-        severity: "warning",
-        icon: "⏳",
-        titleKey: "notif.subEnding.title",
-        bodyKey: "notif.subEnding.body",
-        params: { days: daysLeft },
-        action: { labelKey: "notif.renew", href: "/pricing?renew=1" },
-      });
-    }
-  } else if (
-    input.plan === "free" &&
-    input.planExpiresAt &&
-    new Date(input.planExpiresAt).getTime() <= now.getTime()
-  ) {
-    // The account was Pro and has since been downgraded to free. Let the user
-    // know and nudge a renewal. Stays until they renew or mark it read.
-    out.push({
-      id: "plan-expired",
-      severity: "warning",
-      icon: "⬇️",
-      titleKey: "notif.planExpired.title",
-      bodyKey: "notif.planExpired.body",
-      params: {},
-      action: { labelKey: "notif.renew", href: "/pricing?renew=1" },
-    });
-  }
 
   // --- Budget usage (expenses only; income doesn't count against budgets) ---
   const monthCutoff = daysAgoISO(29);

@@ -13,8 +13,6 @@ export interface Category {
   label: string;
   color: string;
   icon: string;
-  /** keywords used by the mock NLP parser to detect this category */
-  keywords: string[];
 }
 
 /**
@@ -49,16 +47,14 @@ export interface Transaction {
   createdAt: number;
 }
 
-/** A draft expense/income parsed from chat, pending user confirmation. */
-export interface ParsedExpense {
+/** A new expense/income entry from the add form, before it is saved. */
+export interface NewTransaction {
   amount: number;
   category: string;
   type: TxType;
   merchant: string;
   note: string;
   date: string;
-  /** parser confidence 0..1, used to hint the user to double-check */
-  confidence: number;
 }
 
 export type Range = "week" | "month" | "all";

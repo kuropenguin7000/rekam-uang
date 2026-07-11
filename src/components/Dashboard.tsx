@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   byCategory,
   dailySeries,
@@ -15,6 +14,7 @@ import {
   daysAgoISO,
   formatCurrency,
   formatDate,
+  groupDigits,
   todayISO,
 } from "@/lib/format";
 import { categoryDisplayName } from "@/lib/categoryName";
@@ -46,7 +46,6 @@ export function Dashboard() {
     setBudget,
     setDailyBudget,
     deleteTransaction,
-    entitlements,
     user,
     categoryMeta,
   } = useExpenses();
@@ -62,8 +61,6 @@ export function Dashboard() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
 
-  const canCustomRange = entitlements?.customDateRange ?? false;
-  const canExport = entitlements?.exportData ?? false;
   const isCustom = range === "custom";
 
   // The date window the export should cover, derived from the active filter.
@@ -170,31 +167,18 @@ export function Dashboard() {
               {t(r.labelKey)}
             </button>
           ))}
-          {canCustomRange ? (
-            <button
-              onClick={() => setRange("custom")}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                isCustom
-                  ? "bg-primary text-white"
-                  : "text-muted hover:text-foreground"
-              }`}
-            >
-              {t("dash.custom")}
-            </button>
-          ) : (
-            <Link
-              href="/pricing"
-              className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted/60 hover:text-primary"
-            >
-              {t("dash.custom")} 🔒
-            </Link>
-          )}
+          <button
+            onClick={() => setRange("custom")}
+            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              isCustom
+                ? "bg-primary text-white"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            {t("dash.custom")}
+          </button>
         </div>
-          <ExportMenu
-            from={exportRange.from}
-            to={exportRange.to}
-            canExport={canExport}
-          />
+          <ExportMenu from={exportRange.from} to={exportRange.to} />
         </div>
       </div>
 
@@ -234,7 +218,7 @@ export function Dashboard() {
             <input
               autoFocus
               inputMode="numeric"
-              value={budgetDraft}
+              value={groupDigits(budgetDraft)}
               onChange={(e) => setBudgetDraft(e.target.value.replace(/[^\d]/g, ""))}
               onKeyDown={(e) => e.key === "Enter" && saveBudget()}
               className="w-36 rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
@@ -320,7 +304,7 @@ export function Dashboard() {
                 <input
                   autoFocus
                   inputMode="numeric"
-                  value={dailyDraft}
+                  value={groupDigits(dailyDraft)}
                   placeholder={t("dash.autoPlaceholder")}
                   onChange={(e) => setDailyDraft(e.target.value.replace(/[^\d]/g, ""))}
                   onKeyDown={(e) => e.key === "Enter" && saveDaily()}

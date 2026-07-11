@@ -1,151 +1,117 @@
-# Rekam Uang — Chat-Based Money Tracker
+# Rekam Uang — Money Tracker
 
-A conversational **income & expense tracker** for the Indonesian market: type
-transactions in natural language, AI classifies income/expense + category, a
-dashboard visualizes **cash flow**, and an AI **"Wawasan"** (Insights) assistant
-gives savings advice. UI in **Indonesian** (and English).
+A simple **income & expense tracker** for the Indonesian market: log
+transactions with a quick manual form, a dashboard visualizes **cash flow**,
+and a rule-based **"Wawasan"** (Insights) panel gives savings advice. UI in
+**Indonesian** (and English). No AI, no paid plans, no server — the whole app
+runs free on the Firebase **Spark** plan.
 
-> Product name is **Rekam Uang**. The repo folder is still `spend-wise` and the
-> Postgres database/user/container are still `spendwise` — those are
-> infrastructure identifiers, intentionally left unchanged.
+> Product name is **Rekam Uang**. The repo folder is still `spend-wise` — an
+> infrastructure identifier, intentionally left unchanged.
 
-**Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind
-v4 · Recharts · Prisma 6 + **PostgreSQL** (Docker) · `jose` (JWT-cookie auth) +
-Google OAuth · **Google Gemini** (`@google/genai`) · exceljs + pdf-lib (export) ·
-Midtrans (mocked).
+**Stack:** Next.js 16 static export (App Router, Turbopack) · React 19 ·
+TypeScript · Tailwind v4 · Recharts · **Firebase Auth** (Google sign-in) ·
+**Cloud Firestore** (browser SDK + per-user security rules) · exceljs +
+pdf-lib (in-browser export) · **Firebase Hosting** (free plan).
+
+## Architecture (no server)
+
+The build (`next build`, `output: "export"`) produces plain static files in
+`out/`. The browser talks to Firebase directly:
+
+- **Auth**: Google sign-in popup; the Firebase SDK persists the session
+  (IndexedDB) and refreshes tokens itself. Pages guard themselves client-side
+  (`onAuthStateChanged` → redirect to `/login`).
+- **Data**: [src/lib/firestore.ts](src/lib/firestore.ts) (web SDK) reads/writes
+  `users/{uid}` and `users/{uid}/transactions/{id}`.
+  [firestore.rules](firestore.rules) are the server-side enforcement: each user
+  can only touch their own subtree, with field validation on every write.
+- **Export**: Excel/PDF/CSV files are generated **in the browser** from the
+  already-loaded data ([src/lib/export.ts](src/lib/export.ts), dynamically
+  imported) — no endpoint involved.
 
 ## Prerequisites
 
 - Node.js 20+
-- Docker (for local PostgreSQL)
+- A Firebase project on the **free Spark plan** (no credit card)
+- `firebase-tools` CLI (`npm i -g firebase-tools`) for deploys
 
-## Running
+## Firebase project setup (one-time)
+
+1. [console.firebase.google.com](https://console.firebase.google.com) → **Add
+   project** (Spark plan is fine).
+2. **Authentication → Sign-in method → enable Google.**
+3. **Firestore Database → Create database** (production mode; pick a region
+   close to your users, e.g. `asia-southeast2` Jakarta).
+4. **Project settings → General → Your apps → Add app → Web.** Copy the config
+   values into `.env` (see `.env.example`).
+5. Deploy rules + indexes **before first use** (the composite index builds
+   asynchronously):
+
+   ```bash
+   firebase login
+   firebase use <your-project-id>
+   firebase deploy --only firestore
+   ```
+
+## Running locally
 
 ```bash
-docker compose up -d      # PostgreSQL on host port 5433 (container spendwise-db)
-npm install               # also runs `prisma generate` (postinstall)
-cp .env.example .env      # then fill in credentials (see "Environment variables")
-npm run db:push           # create / sync tables in Postgres
+npm install
+cp .env.example .env      # fill in the NEXT_PUBLIC_FIREBASE_* values
 npm run dev               # http://localhost:3000
 ```
 
-> Use `npm run dev`, **not** `npm start` — production mode sets a `Secure` cookie
-> that won't persist over plain http during local development.
+`localhost` is already an authorized domain for Google sign-in, and the
+browser SDK needs no service account — `.env` is genuinely all of it.
 
-### Minimum credentials to sign in
-
-- **Login requires Google OAuth** (demo login has been removed). Fill in
-  `GOOGLE_CLIENT_ID` & `GOOGLE_CLIENT_SECRET`, then register
-  `${APP_URL}/api/auth/google/callback` as an *Authorized redirect URI* in the
-  Google Cloud Console.
-- **Gemini is optional** — without `GEMINI_API_KEY`, the app uses a **local**
-  regex parser/insights engine as a fallback, so it still runs end-to-end.
-- **Midtrans is mocked** — keep `MIDTRANS_MOCK="true"` for the simulated payment
-  flow (no real charges).
-- **Master account** — set `MASTER_EMAIL` to your email to unlock every feature
-  (equivalent to unlimited Pro).
-
-> Local DB via [docker-compose.yml](docker-compose.yml) (Postgres on port **5433**
-> so it doesn't clash with another Postgres on 5432). Stop it with
-> `docker compose down` (add `-v` to delete its data). Inspect data with
-> `npm run db:studio`, or IntelliJ Database — Host `localhost`, Port `5433`,
-> Database/User/Password all `spendwise`.
+To develop against the **local emulators** instead of the real project:
+`NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1` in `.env`, then
+`firebase emulators:start --only auth,firestore --project demo-rekam`.
 
 ## Environment variables
 
-See [.env.example](.env.example) for the full template.
-
 | Variable | Required? | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection (default already matches docker-compose). |
-| `AUTH_SECRET` | yes | JWT session signing key (`sw_session` cookie). |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | yes (to sign in) | Google OAuth credentials. |
-| `APP_URL` | yes | Public base URL; drives the OAuth redirect (e.g. tunnel/deploy URL). |
-| `MASTER_EMAIL` | optional | Master account email (all features unlocked). |
-| `GEMINI_API_KEY` (+ `_2`/`_3`, `GEMINI_API_KEYS`) | optional | AI parsing/analysis; empty → local fallback. Multiple keys = automatic failover. |
-| `GEMINI_MODEL` | optional | Defaults to `gemini-2.5-flash`. |
-| `MIDTRANS_MOCK` | yes | `"true"` for the simulated payment flow. |
-| `MIDTRANS_SERVER_KEY` / `MIDTRANS_CLIENT_KEY` | optional | Only when `MIDTRANS_MOCK=false`. |
+| `NEXT_PUBLIC_FIREBASE_API_KEY` / `_AUTH_DOMAIN` / `_PROJECT_ID` / `_APP_ID` | yes | Firebase web app config (public identifiers, inlined client-side). |
+| `NEXT_PUBLIC_FIREBASE_USE_EMULATORS` | optional | `1` = use the local Auth/Firestore emulators. |
 
 ## Features
 
 | Feature | Location |
 | --- | --- |
-| Chat to log transactions (**income & expense**) | [ChatPanel.tsx](src/components/ChatPanel.tsx) → `POST /api/parse` |
-| **Edit / Confirm / Discard** receipt card | [ReceiptCard.tsx](src/components/ReceiptCard.tsx) |
+| **Manual add form** (expense/income toggle, category, note, date) | [AddTransactionModal.tsx](src/components/AddTransactionModal.tsx) |
+| **Mobile-first inputs** — tap-only date picker (centered calendar overlay on phones), money fields grouped while typing (`1.500.000`) | [DatePicker.tsx](src/components/DatePicker.tsx), [lib/format.ts](src/lib/format.ts) |
 | Cash-flow dashboard (**Income / Expense / Net**), pie + daily charts, period filters | [Dashboard.tsx](src/components/Dashboard.tsx) |
 | Monthly budget **+ per-category budgets** | [CategoryBudgets.tsx](src/components/CategoryBudgets.tsx) |
 | **Category management** — rename/hide built-ins, add/edit/delete custom | [CategoryManager.tsx](src/components/CategoryManager.tsx), [lib/categories.ts](src/lib/categories.ts) |
 | Edit & delete transactions | [EditTransactionModal.tsx](src/components/EditTransactionModal.tsx) |
 | **Notifications** (bell + persistent log) | [NotificationBell.tsx](src/components/NotificationBell.tsx), [lib/notifications.ts](src/lib/notifications.ts) |
-| AI insights (savings advice) | [InsightsPanel.tsx](src/components/InsightsPanel.tsx) → `POST /api/analyze` |
-| **Excel / PDF / CSV export** (Pro) | [ExportMenu.tsx](src/components/ExportMenu.tsx) → `GET /api/export`, [lib/export.ts](src/lib/export.ts) |
-| Google login + JWT session | [login/page.tsx](src/app/login/page.tsx), [lib/google.ts](src/lib/google.ts), [lib/session.ts](src/lib/session.ts) |
-| Pricing, Pro subscription, **renewal & auto-downgrade** | [pricing/page.tsx](src/app/pricing/page.tsx), [api/billing](src/app/api/billing) |
+| Rule-based insights (savings advice, computed client-side) | [InsightsPanel.tsx](src/components/InsightsPanel.tsx), [lib/insights.ts](src/lib/insights.ts) |
+| **Excel / PDF / CSV export** (built in the browser) | [ExportMenu.tsx](src/components/ExportMenu.tsx), [lib/export.ts](src/lib/export.ts) |
+| Google sign-in (Firebase Auth, client SDK session) | [login/page.tsx](src/app/login/page.tsx), [lib/firebaseClient.ts](src/lib/firebaseClient.ts) |
 | **Bilingual (ID/EN)** + light/dark theme | [I18nProvider.tsx](src/components/I18nProvider.tsx), [ThemeProvider.tsx](src/components/ThemeProvider.tsx) |
 
-App routes are protected by [src/proxy.ts](src/proxy.ts) (Next 16 middleware);
-public routes: `/login`, `/pricing`, `/terms`.
+## Deploy — Firebase Hosting (free)
 
-## Plans & limits
+```bash
+npm run build                     # static site → out/
+firebase deploy --only hosting    # serves it at https://<project-id>.web.app
+```
 
-Defined in [src/lib/plans.ts](src/lib/plans.ts):
+The `web.app` / `firebaseapp.com` domains are pre-authorized for Google
+sign-in. If you add a **custom domain** later, also add it under
+**Authentication → Settings → Authorized domains**.
 
-- **Free** — 5 AI parses/day, 1 AI analysis/day, weekly & monthly filters.
-- **Pro** (Rp 49,000/mo or Rp 490,000/yr) — unlimited AI parsing & analysis,
-  subscription/benchmark detection, custom date-range filters, Excel/PDF/CSV
-  export.
-- **Master** (`MASTER_EMAIL`) — everything unlocked, no limits.
+## Data model
 
-Limits are enforced per-day on the server ([lib/usage.ts](src/lib/usage.ts)), plus
-a per-signature result cache, per-request cooldown, and a hard daily cap for all.
+- `users/{uid}`: email, name, image, budget, dailyBudget, categoryBudgets
+  (map), categoriesConfig (custom categories + built-in overrides), createdAt.
+- `users/{uid}/transactions/{autoId}`: amount, category, type
+  (expense/income), merchant, note, date (`yyyy-mm-dd` string), createdAt
+  (Timestamp).
+- One composite index: `(date desc, createdAt desc)` on `transactions`
+  ([firestore.indexes.json](firestore.indexes.json)).
 
-## AI: Gemini + failover
-
-Parsing & analysis use `gemini-2.5-flash` via `@google/genai` (see
-[lib/ai.ts](src/lib/ai.ts)):
-
-- **Structured JSON output** (`responseSchema`) with thinking disabled → token
-  efficient, no prose.
-- **Multi-key failover** — reads `GEMINI_API_KEY` + `_2`/`_3` (and an optional
-  comma-separated `GEMINI_API_KEYS`). On quota/rate-limit (429), overload (503),
-  or an invalid key (401/403), it rotates to the next key automatically.
-- **Parse** classifies income vs expense, picks a built-in category, extracts the
-  merchant/source, and resolves **relative dates** ("kemarin", "senin kemarin",
-  "3 hari lalu" …).
-- **Analyze** sends a pre-aggregated summary, not every transaction row.
-- **Local fallback** ([lib/parser.ts](src/lib/parser.ts), [lib/insights.ts](src/lib/insights.ts))
-  when all keys fail or none are set — the app keeps working.
-
-## API
-
-| Route | Purpose |
-| --- | --- |
-| `POST /api/auth/google` · `/google/callback` · `POST /api/auth/logout` | Google auth + session |
-| `GET/PATCH /api/me` | Profile, entitlements, usage, budgets, categories |
-| `GET/POST /api/transactions`, `PATCH/DELETE /api/transactions/[id]` | Transaction CRUD |
-| `POST/PATCH/DELETE /api/categories` | Manage categories (custom + built-in overrides) |
-| `POST /api/parse` | Parse a transaction (gated + metered) |
-| `POST /api/analyze` | AI insights (gated + metered) |
-| `GET /api/export` | Export Excel/PDF/CSV (Pro) |
-| `POST /api/billing/checkout` · `/webhook` · `/expire` | Midtrans payment (mock) + auto-downgrade |
-
-## Enabling real integrations
-
-- **Google OAuth** — fill in `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`; add
-  `${APP_URL}/api/auth/google/callback` as a redirect URI.
-- **Gemini** — set `GEMINI_API_KEY` (and `_2`/`_3` for failover). Override
-  `GEMINI_MODEL` if needed.
-- **Midtrans** — set `MIDTRANS_MOCK=false` + `MIDTRANS_SERVER_KEY`, then replace
-  the body of `createTransaction()` in [lib/midtrans.ts](src/lib/midtrans.ts) with
-  a Snap API call (the webhook contract already matches Midtrans).
-- **Production PostgreSQL** — point `DATABASE_URL` at a managed Postgres/VPS. The
-  schema is synced with `npx prisma db push` (this project has no migration files).
-
-## Sharing & deploy
-
-- **Quick public sharing** — Cloudflare quick tunnel:
-  `cloudflared tunnel --url http://localhost:3000`. Each run gives a new random URL
-  → update `APP_URL`, restart dev, and re-add the Google redirect URI.
-- **Free hosting** — Vercel (app) + Neon (Postgres); needs Prisma
-  `binaryTargets`/`directUrl` tweaks and the Google redirect for the deploy URL.
+Spark free quotas (50k reads / 20k writes per day, 1 GiB storage) are far
+beyond personal use.

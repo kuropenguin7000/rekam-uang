@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChatPanel } from "@/components/ChatPanel";
 import { Dashboard } from "@/components/Dashboard";
 import { InsightsPanel } from "@/components/InsightsPanel";
-import { ChatIcon, DashboardIcon, InsightIcon } from "@/components/icons";
+import { AddTransactionModal } from "@/components/AddTransactionModal";
+import { DashboardIcon, InsightIcon, PlusIcon } from "@/components/icons";
 import { Avatar } from "@/components/Avatar";
 import { NotificationBell } from "@/components/NotificationBell";
 import { BrandMark } from "@/components/Logo";
@@ -15,10 +15,9 @@ import { useI18n } from "@/components/I18nProvider";
 import type { MessageKey } from "@/i18n/messages";
 import { ExpenseProvider, useExpenses } from "@/store/ExpenseStore";
 
-type Tab = "chat" | "dashboard" | "insights";
+type Tab = "dashboard" | "insights";
 
 const TABS: { id: Tab; labelKey: MessageKey; icon: React.ReactNode }[] = [
-  { id: "chat", labelKey: "nav.chat", icon: <ChatIcon /> },
   { id: "dashboard", labelKey: "nav.dashboard", icon: <DashboardIcon /> },
   { id: "insights", labelKey: "nav.insights", icon: <InsightIcon /> },
 ];
@@ -32,7 +31,8 @@ export default function Page() {
 }
 
 function Shell() {
-  const [tab, setTab] = useState<Tab>("chat");
+  const [tab, setTab] = useState<Tab>("dashboard");
+  const [adding, setAdding] = useState(false);
   const { ready, user } = useExpenses();
   const { t } = useI18n();
 
@@ -60,6 +60,14 @@ function Shell() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAdding(true)}
+            aria-label={t("add.title")}
+            className="hidden items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:opacity-90 sm:inline-flex"
+          >
+            <PlusIcon className="h-4 w-4" />
+            {t("add.button")}
+          </button>
           <NotificationBell />
           <LanguageSwitcher />
           <ThemeToggle />
@@ -79,16 +87,20 @@ function Shell() {
           <div className="grid h-64 place-items-center text-sm text-muted">
             {t("common.loading")}
           </div>
-        ) : tab === "chat" ? (
-          <div className="h-[calc(100vh-12rem)]">
-            <ChatPanel />
-          </div>
         ) : tab === "dashboard" ? (
           <Dashboard />
         ) : (
           <InsightsPanel />
         )}
       </main>
+
+      <button
+        onClick={() => setAdding(true)}
+        aria-label={t("add.title")}
+        className="fixed bottom-20 right-4 z-20 grid h-14 w-14 place-items-center rounded-full bg-primary text-white shadow-lg hover:opacity-90 sm:hidden"
+      >
+        <PlusIcon className="h-6 w-6" />
+      </button>
 
       <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-border bg-surface/95 backdrop-blur sm:hidden">
         {TABS.map((tab2) => (
@@ -104,6 +116,8 @@ function Shell() {
           </button>
         ))}
       </nav>
+
+      {adding && <AddTransactionModal onClose={() => setAdding(false)} />}
     </div>
   );
 }

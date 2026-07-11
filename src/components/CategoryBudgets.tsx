@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { daysAgoISO, formatCurrency } from "@/lib/format";
+import { daysAgoISO, formatCurrency, groupDigits } from "@/lib/format";
 import { categoryDisplayName } from "@/lib/categoryName";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
@@ -82,7 +82,7 @@ export function CategoryBudgets() {
                       <input
                         autoFocus
                         inputMode="numeric"
-                        value={draft}
+                        value={groupDigits(draft)}
                         placeholder={t("dash.catBudgetNoCap")}
                         onChange={(e) =>
                           setDraft(e.target.value.replace(/[^\d]/g, ""))

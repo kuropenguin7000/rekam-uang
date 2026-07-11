@@ -3,6 +3,14 @@ export function formatCurrency(value: number): string {
   return "Rp " + Math.round(value).toLocaleString("id-ID");
 }
 
+/**
+ * Group a raw digit string with dots for money inputs while typing,
+ * e.g. "1500000" -> "1.500.000". Empty stays empty.
+ */
+export function groupDigits(digits: string): string {
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+}
+
 /** Compact currency for axis labels, e.g. 50000 -> "50k", 1500000 -> "1.5jt". */
 export function formatCompact(value: number): string {
   const abs = Math.abs(value);

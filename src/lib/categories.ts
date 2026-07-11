@@ -1,160 +1,14 @@
 import type { Category, CategoryId, UserCategory } from "./types";
 
 export const CATEGORIES: Record<CategoryId, Category> = {
-  food: {
-    id: "food",
-    label: "Makanan & Minuman",
-    color: "#f97316",
-    icon: "🍽️",
-    keywords: [
-      "coffee",
-      "kopi",
-      "starbucks",
-      "lunch",
-      "dinner",
-      "breakfast",
-      "makan",
-      "food",
-      "snack",
-      "restaurant",
-      "resto",
-      "cafe",
-      "tea",
-      "boba",
-      "mcd",
-      "kfc",
-      "burger",
-      "pizza",
-    ],
-  },
-  transport: {
-    id: "transport",
-    label: "Transportasi",
-    color: "#0ea5e9",
-    icon: "🚗",
-    keywords: [
-      "grab",
-      "gojek",
-      "gocar",
-      "gobike",
-      "taxi",
-      "ojek",
-      "ride",
-      "ride-sharing",
-      "fuel",
-      "bensin",
-      "pertamax",
-      "parking",
-      "parkir",
-      "toll",
-      "tol",
-      "train",
-      "kereta",
-      "bus",
-      "mrt",
-    ],
-  },
-  shopping: {
-    id: "shopping",
-    label: "Belanja",
-    color: "#ec4899",
-    icon: "🛍️",
-    keywords: [
-      "shopee",
-      "tokopedia",
-      "lazada",
-      "clothes",
-      "baju",
-      "shoes",
-      "sepatu",
-      "shopping",
-      "uniqlo",
-      "zara",
-      "gadget",
-      "electronics",
-    ],
-  },
-  groceries: {
-    id: "groceries",
-    label: "Kebutuhan Pokok",
-    color: "#22c55e",
-    icon: "🛒",
-    keywords: [
-      "groceries",
-      "grocery",
-      "supermarket",
-      "indomaret",
-      "alfamart",
-      "market",
-      "vegetables",
-      "sayur",
-      "fruits",
-    ],
-  },
-  entertainment: {
-    id: "entertainment",
-    label: "Hiburan",
-    color: "#a855f7",
-    icon: "🎬",
-    keywords: [
-      "movie",
-      "cinema",
-      "bioskop",
-      "netflix",
-      "spotify",
-      "game",
-      "steam",
-      "concert",
-      "youtube",
-      "disney",
-    ],
-  },
-  bills: {
-    id: "bills",
-    label: "Tagihan & Utilitas",
-    color: "#eab308",
-    icon: "🧾",
-    keywords: [
-      "electricity",
-      "listrik",
-      "internet",
-      "wifi",
-      "phone",
-      "pulsa",
-      "water",
-      "pdam",
-      "subscription",
-      "bill",
-      "tagihan",
-      "rent",
-      "kos",
-    ],
-  },
-  health: {
-    id: "health",
-    label: "Kesehatan",
-    color: "#ef4444",
-    icon: "💊",
-    keywords: [
-      "pharmacy",
-      "apotek",
-      "doctor",
-      "dokter",
-      "hospital",
-      "medicine",
-      "obat",
-      "gym",
-      "clinic",
-      "vitamin",
-    ],
-  },
-  other: {
-    id: "other",
-    label: "Lainnya",
-    color: "#94a3b8",
-    icon: "📦",
-    keywords: [],
-  },
+  food: { id: "food", label: "Makanan & Minuman", color: "#f97316", icon: "🍽️" },
+  transport: { id: "transport", label: "Transportasi", color: "#0ea5e9", icon: "🚗" },
+  shopping: { id: "shopping", label: "Belanja", color: "#ec4899", icon: "🛍️" },
+  groceries: { id: "groceries", label: "Kebutuhan Pokok", color: "#22c55e", icon: "🛒" },
+  entertainment: { id: "entertainment", label: "Hiburan", color: "#a855f7", icon: "🎬" },
+  bills: { id: "bills", label: "Tagihan & Utilitas", color: "#eab308", icon: "🧾" },
+  health: { id: "health", label: "Kesehatan", color: "#ef4444", icon: "💊" },
+  other: { id: "other", label: "Lainnya", color: "#94a3b8", icon: "📦" },
 };
 
 export const CATEGORY_LIST: Category[] = Object.values(CATEGORIES);
@@ -228,44 +82,38 @@ export function resolveCategory(
   );
 }
 
-/** Parse & sanitize the stored categoriesConfig JSON. */
-export function parseCategoriesConfig(raw: string | null): CategoriesConfig {
-  if (!raw) return { custom: [], overrides: {} };
-  try {
-    const obj = JSON.parse(raw) as unknown;
-    if (!obj || typeof obj !== "object") return { custom: [], overrides: {} };
-    const rec = obj as { custom?: unknown; overrides?: unknown };
+/** Sanitize an arbitrary stored value into a well-formed CategoriesConfig. */
+export function sanitizeCategoriesConfig(obj: unknown): CategoriesConfig {
+  if (!obj || typeof obj !== "object") return { custom: [], overrides: {} };
+  const rec = obj as { custom?: unknown; overrides?: unknown };
 
-    const custom: CategoriesConfig["custom"] = Array.isArray(rec.custom)
-      ? rec.custom
-          .filter(
-            (c): c is Record<string, unknown> =>
-              !!c && typeof c === "object" && typeof (c as { id?: unknown }).id === "string"
-          )
-          .map((c) => ({
-            id: String(c.id),
-            label: String((c.label ?? "")).slice(0, 40),
-            icon: typeof c.icon === "string" && c.icon ? c.icon : "🏷️",
-            color: typeof c.color === "string" && c.color ? c.color : "#94a3b8",
-          }))
-      : [];
+  const custom: CategoriesConfig["custom"] = Array.isArray(rec.custom)
+    ? rec.custom
+        .filter(
+          (c): c is Record<string, unknown> =>
+            !!c && typeof c === "object" && typeof (c as { id?: unknown }).id === "string"
+        )
+        .map((c) => ({
+          id: String(c.id),
+          label: String((c.label ?? "")).slice(0, 40),
+          icon: typeof c.icon === "string" && c.icon ? c.icon : "🏷️",
+          color: typeof c.color === "string" && c.color ? c.color : "#94a3b8",
+        }))
+    : [];
 
-    const overrides: CategoriesConfig["overrides"] = {};
-    if (rec.overrides && typeof rec.overrides === "object") {
-      for (const [k, v] of Object.entries(
-        rec.overrides as Record<string, unknown>
-      )) {
-        if (!(k in CATEGORIES) || !v || typeof v !== "object") continue;
-        const vv = v as { label?: unknown; hidden?: unknown };
-        const o: { label?: string; hidden?: boolean } = {};
-        if (typeof vv.label === "string" && vv.label.trim())
-          o.label = vv.label.slice(0, 40);
-        if (typeof vv.hidden === "boolean") o.hidden = vv.hidden;
-        if (Object.keys(o).length) overrides[k] = o;
-      }
+  const overrides: CategoriesConfig["overrides"] = {};
+  if (rec.overrides && typeof rec.overrides === "object") {
+    for (const [k, v] of Object.entries(
+      rec.overrides as Record<string, unknown>
+    )) {
+      if (!(k in CATEGORIES) || !v || typeof v !== "object") continue;
+      const vv = v as { label?: unknown; hidden?: unknown };
+      const o: { label?: string; hidden?: boolean } = {};
+      if (typeof vv.label === "string" && vv.label.trim())
+        o.label = vv.label.slice(0, 40);
+      if (typeof vv.hidden === "boolean") o.hidden = vv.hidden;
+      if (Object.keys(o).length) overrides[k] = o;
     }
-    return { custom, overrides };
-  } catch {
-    return { custom: [], overrides: {} };
   }
+  return { custom, overrides };
 }
