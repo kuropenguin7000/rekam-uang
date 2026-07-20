@@ -26,7 +26,7 @@ const CONTENT: Record<Locale, TermsContent> = {
     sections: [
       {
         h: "1. Tentang Layanan",
-        p: "Rekam Uang adalah aplikasi pencatat pengeluaran pribadi. Kamu mencatat pemasukan dan pengeluaran secara manual, melihat ringkasan di dashboard, dan mendapat saran hemat otomatis. Layanan disediakan apa adanya dan dapat berubah sewaktu-waktu.",
+        p: "Rekam Uang adalah aplikasi pencatat pengeluaran pribadi. Kamu mencatat pengeluaran secara manual, melihat ringkasan di dashboard, dan mendapat saran hemat otomatis. Layanan disediakan apa adanya dan dapat berubah sewaktu-waktu.",
       },
       {
         h: "2. Akun & Masuk",
@@ -63,7 +63,7 @@ const CONTENT: Record<Locale, TermsContent> = {
     sections: [
       {
         h: "1. About the Service",
-        p: "Rekam Uang is a personal expense tracker. You log income and expenses manually, view a dashboard, and get automatic savings insights. The service is provided as-is and may change at any time.",
+        p: "Rekam Uang is a personal expense tracker. You log expenses manually, view a dashboard, and get automatic savings insights. The service is provided as-is and may change at any time.",
       },
       {
         h: "2. Accounts & Sign-in",

@@ -1,10 +1,14 @@
 # Rekam Uang — Money Tracker
 
-A simple **income & expense tracker** for the Indonesian market: log
-transactions with a quick manual form, a dashboard visualizes **cash flow**,
-and a rule-based **"Wawasan"** (Insights) panel gives savings advice. UI in
-**Indonesian** (and English). No AI, no paid plans, no server — the whole app
-runs free on the Firebase **Spark** plan.
+A simple **expense tracker** for the Indonesian market: log spending with a
+quick manual form, tag each expense to a **family member**, and a dashboard
+breaks the spending down — with a rule-based **"Wawasan"** (Insights) panel for
+savings advice. UI in **Indonesian** (and English). No AI, no paid plans, no
+server — the whole app runs free on the Firebase **Spark** plan.
+
+> **Expenses only.** Income tracking was removed deliberately: the monthly
+> budget is set from income *outside* the app, so nothing on screen reveals
+> what comes in.
 
 > Product name is **Rekam Uang**. The repo folder is still `spend-wise` — an
 > infrastructure identifier, intentionally left unchanged.
@@ -80,15 +84,16 @@ To develop against the **local emulators** instead of the real project:
 
 | Feature | Location |
 | --- | --- |
-| **Manual add form** (expense/income toggle, category, note, date) | [AddTransactionModal.tsx](src/components/AddTransactionModal.tsx) |
+| **Manual add form** (amount, category, member, note, date) | [AddTransactionModal.tsx](src/components/AddTransactionModal.tsx) |
 | **Mobile-first inputs** — tap-only date picker (centered calendar overlay on phones), money fields grouped while typing (`1.500.000`) | [DatePicker.tsx](src/components/DatePicker.tsx), [lib/format.ts](src/lib/format.ts) |
-| Cash-flow dashboard (**Income / Expense / Net**), pie + daily charts, period filters | [Dashboard.tsx](src/components/Dashboard.tsx) |
+| Spending dashboard (total + count), pie + daily charts, period filters | [Dashboard.tsx](src/components/Dashboard.tsx) |
+| **Per-member labels & filter** — tag every expense to Ayah / Ibu / Anak / Bersama (or a custom member) and scope the whole dashboard to one person | [MemberManager.tsx](src/components/MemberManager.tsx), [lib/members.ts](src/lib/members.ts) |
 | Monthly budget **+ per-category budgets** | [CategoryBudgets.tsx](src/components/CategoryBudgets.tsx) |
 | **Category management** — rename/hide built-ins, add/edit/delete custom | [CategoryManager.tsx](src/components/CategoryManager.tsx), [lib/categories.ts](src/lib/categories.ts) |
 | Edit & delete transactions | [EditTransactionModal.tsx](src/components/EditTransactionModal.tsx) |
 | **Notifications** (bell + persistent log) | [NotificationBell.tsx](src/components/NotificationBell.tsx), [lib/notifications.ts](src/lib/notifications.ts) |
 | Rule-based insights (savings advice, computed client-side) | [InsightsPanel.tsx](src/components/InsightsPanel.tsx), [lib/insights.ts](src/lib/insights.ts) |
-| **Excel / PDF / CSV export** (built in the browser) | [ExportMenu.tsx](src/components/ExportMenu.tsx), [lib/export.ts](src/lib/export.ts) |
+| **Excel / PDF / CSV export** (built in the browser; follows the active date **and** member filter, with a per-member breakdown) | [ExportMenu.tsx](src/components/ExportMenu.tsx), [lib/export.ts](src/lib/export.ts) |
 | Google sign-in (Firebase Auth, client SDK session) | [login/page.tsx](src/app/login/page.tsx), [lib/firebaseClient.ts](src/lib/firebaseClient.ts) |
 | **Bilingual (ID/EN)** + light/dark theme | [I18nProvider.tsx](src/components/I18nProvider.tsx), [ThemeProvider.tsx](src/components/ThemeProvider.tsx) |
 
@@ -106,12 +111,19 @@ sign-in. If you add a **custom domain** later, also add it under
 ## Data model
 
 - `users/{uid}`: email, name, image, budget, dailyBudget, categoryBudgets
-  (map), categoriesConfig (custom categories + built-in overrides), createdAt.
-- `users/{uid}/transactions/{autoId}`: amount, category, type
-  (expense/income), merchant, note, date (`yyyy-mm-dd` string), createdAt
-  (Timestamp).
+  (map), categoriesConfig (custom categories + built-in overrides),
+  membersConfig (same shape, for family members), createdAt.
+- `users/{uid}/transactions/{autoId}`: amount, category, member (built-in id or
+  custom `m_*`; `""` = untagged), type, merchant, note, date (`yyyy-mm-dd`
+  string), createdAt (Timestamp).
 - One composite index: `(date desc, createdAt desc)` on `transactions`
   ([firestore.indexes.json](firestore.indexes.json)).
+
+`type` is always `"expense"` for anything written today. It survives only so
+`listTransactions` can recognise and exclude `"income"` documents saved before
+income tracking was removed — one filter at the data-layer boundary, so nothing
+downstream needs a type check. The Account page shows a one-time purge card
+while any such documents remain, and hides itself once they're gone.
 
 Spark free quotas (50k reads / 20k writes per day, 1 GiB storage) are far
 beyond personal use.

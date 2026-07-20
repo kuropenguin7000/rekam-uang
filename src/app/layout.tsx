@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Rekam Uang",
   description:
-    "Catat uang masuk & keluar dengan mudah. Dashboard visual, anggaran per kategori, dan saran hemat otomatis.",
+    "Catat pengeluaran dengan mudah. Dashboard visual, anggaran per kategori, dan saran hemat otomatis.",
 };
 
 // Set the theme class before paint to avoid a flash of the wrong theme.

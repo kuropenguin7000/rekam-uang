@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { categoryDisplayName } from "@/lib/categoryName";
+import { memberDisplayName } from "@/lib/memberName";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 
@@ -13,9 +14,18 @@ type Fmt = "xlsx" | "pdf" | "csv";
  * app is a static export — there is no server); the heavy builders load on
  * demand via a dynamic import.
  */
-export function ExportMenu({ from, to }: { from?: string; to?: string }) {
+export function ExportMenu({
+  from,
+  to,
+  member,
+}: {
+  from?: string;
+  to?: string;
+  /** "" = every member; otherwise export only that member's expenses. */
+  member?: string;
+}) {
   const { t, locale } = useI18n();
-  const { user, transactions, categories } = useExpenses();
+  const { user, transactions, categories, members } = useExpenses();
   const [open, setOpen] = useState(false);
   const [building, setBuilding] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,17 +44,21 @@ export function ExportMenu({ from, to }: { from?: string; to?: string }) {
     setBuilding(true);
     try {
       const { downloadExport } = await import("@/lib/export");
-      // Expense-only report over the active date window, newest first (the
-      // store list is already ordered by date desc, createdAt desc).
+      // Report over the active date window, newest first (the store list is
+      // already ordered by date desc, createdAt desc).
       const rows = transactions.filter(
         (tx) =>
-          tx.type !== "income" &&
           (!from || tx.date >= from) &&
-          (!to || tx.date <= to)
+          (!to || tx.date <= to) &&
+          (!member || tx.member === member)
       );
       const categoryNames: Record<string, string> = {};
       for (const c of categories) {
         categoryNames[c.id] = categoryDisplayName(c, t);
+      }
+      const memberNames: Record<string, string> = {};
+      for (const m of members) {
+        memberNames[m.id] = memberDisplayName(m, t);
       }
       await downloadExport(fmt, {
         transactions: rows,
@@ -54,6 +68,8 @@ export function ExportMenu({ from, to }: { from?: string; to?: string }) {
         from,
         to,
         categoryNames,
+        memberNames,
+        memberFilter: member ? memberNames[member] : undefined,
       });
     } finally {
       setBuilding(false);

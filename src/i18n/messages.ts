@@ -2,7 +2,7 @@ import type { Locale } from "./config";
 
 /** Base (Indonesian) dictionary. Its keys define the contract for every locale. */
 const id = {
-  "app.tagline": "Catat pemasukan & pengeluaran harianmu",
+  "app.tagline": "Catat pengeluaran harianmu",
   "nav.dashboard": "Dashboard",
   "nav.insights": "Wawasan",
   "common.loading": "Memuat…",
@@ -13,10 +13,9 @@ const id = {
 
   "receipt.amount": "Jumlah (Rp)",
   "receipt.category": "Kategori",
+  "receipt.member": "Untuk siapa",
   "receipt.merchant": "Toko / Merchant",
   "receipt.merchantShort": "Toko",
-  "receipt.income": "Pemasukan",
-  "receipt.source": "Sumber",
   "receipt.merchantPlaceholder": "misalnya: Starbucks",
   "receipt.date": "Tanggal",
   "receipt.cancel": "Batal",
@@ -25,10 +24,8 @@ const id = {
   "edit.save": "Simpan",
   "edit.saving": "Menyimpan…",
 
-  "add.title": "Tambah transaksi",
+  "add.title": "Tambah pengeluaran",
   "add.button": "Tambah",
-  "add.typeExpense": "Pengeluaran",
-  "add.typeIncome": "Pemasukan",
   "add.note": "Catatan (opsional)",
 
   "dash.title": "Ringkasan pengeluaran",
@@ -36,14 +33,15 @@ const id = {
   "dash.month": "Bulan ini",
   "dash.all": "Semua",
   "dash.custom": "Periode",
+  "dash.memberFilter": "Anggota",
+  "dash.memberAll": "Semua",
+  "dash.expenseOf": "Pengeluaran {name}",
   "dash.pickPeriod": "Pilih periode:",
   "dash.from": "Dari",
   "dash.to": "Sampai",
   "dash.totalSpent": "Total pengeluaran",
   "dash.txCount": "Transaksi",
-  "dash.income": "Pemasukan",
   "dash.expense": "Pengeluaran",
-  "dash.net": "Selisih",
   "dash.monthlyBudget": "Anggaran bulanan",
   "dash.catBudgetTitle": "Anggaran per kategori",
   "dash.catBudgetHint":
@@ -96,7 +94,7 @@ const id = {
   "ins.kindTip": "Tips",
   "ins.kindPositive": "Bagus",
 
-  "login.tagline": "Catat pemasukan & pengeluaran dengan mudah.",
+  "login.tagline": "Catat pengeluaran dengan mudah.",
   "login.google": "Masuk dengan Google",
   "login.termsPre": "Dengan masuk, kamu menyetujui ",
   "login.termsLink": "ketentuan layanan",
@@ -148,13 +146,43 @@ const id = {
   "cat.delete": "Hapus",
   "cat.deleteConfirm":
     'Hapus kategori "{name}"? Transaksinya dipindahkan ke Lainnya.',
+
+  "mem.father": "Ayah",
+  "mem.mother": "Ibu",
+  "mem.kids": "Anak",
+  "mem.shared": "Bersama",
+
+  "mem.manageTitle": "Kelola anggota keluarga",
+  "mem.manageHint":
+    "Label ini menandai pengeluaran milik siapa, agar bisa disaring di dashboard.",
+  "mem.add": "Tambah anggota",
+  "mem.namePlaceholder": "Nama anggota",
+  "mem.cancel": "Batal",
+  "mem.save": "Simpan",
+  "mem.builtin": "bawaan",
+  "mem.rename": "Ubah nama",
+  "mem.hide": "Sembunyikan",
+  "mem.delete": "Hapus",
+  "mem.deleteConfirm":
+    'Hapus anggota "{name}"? Pengeluarannya dipindahkan ke Bersama.',
+
+  "purge.title": "Hapus data pemasukan lama",
+  "purge.body":
+    "Ada {n} catatan pemasukan dari versi lama. Semuanya sudah disembunyikan dari aplikasi, tapi masih tersimpan di database.",
+  "purge.warning":
+    "Penghapusan permanen — tidak bisa dibatalkan. Ekspor dulu kalau angkanya masih dibutuhkan.",
+  "purge.button": "Hapus permanen",
+  "purge.confirm": "Ya, hapus {n} catatan",
+  "purge.cancel": "Batal",
+  "purge.deleting": "Menghapus…",
+  "purge.done": "{n} catatan pemasukan sudah dihapus permanen.",
 };
 
 export type MessageKey = keyof typeof id;
 type Dict = Record<MessageKey, string>;
 
 const en: Dict = {
-  "app.tagline": "Track your daily income & expenses",
+  "app.tagline": "Track your daily spending",
   "nav.dashboard": "Dashboard",
   "nav.insights": "Insights",
   "common.loading": "Loading…",
@@ -165,10 +193,9 @@ const en: Dict = {
 
   "receipt.amount": "Amount (Rp)",
   "receipt.category": "Category",
+  "receipt.member": "Who it's for",
   "receipt.merchant": "Merchant",
   "receipt.merchantShort": "Merchant",
-  "receipt.income": "Income",
-  "receipt.source": "Source",
   "receipt.merchantPlaceholder": "e.g. Starbucks",
   "receipt.date": "Date",
   "receipt.cancel": "Cancel",
@@ -177,10 +204,8 @@ const en: Dict = {
   "edit.save": "Save",
   "edit.saving": "Saving…",
 
-  "add.title": "Add transaction",
+  "add.title": "Add expense",
   "add.button": "Add",
-  "add.typeExpense": "Expense",
-  "add.typeIncome": "Income",
   "add.note": "Note (optional)",
 
   "dash.title": "Spending overview",
@@ -188,14 +213,15 @@ const en: Dict = {
   "dash.month": "This month",
   "dash.all": "All time",
   "dash.custom": "Period",
+  "dash.memberFilter": "Member",
+  "dash.memberAll": "Everyone",
+  "dash.expenseOf": "{name}'s spending",
   "dash.pickPeriod": "Pick a period:",
   "dash.from": "From",
   "dash.to": "To",
   "dash.totalSpent": "Total spent",
   "dash.txCount": "Transactions",
-  "dash.income": "Income",
   "dash.expense": "Expense",
-  "dash.net": "Net",
   "dash.monthlyBudget": "Monthly budget",
   "dash.catBudgetTitle": "Category budgets",
   "dash.catBudgetHint":
@@ -248,7 +274,7 @@ const en: Dict = {
   "ins.kindTip": "Tip",
   "ins.kindPositive": "Good",
 
-  "login.tagline": "Track income & expenses with ease.",
+  "login.tagline": "Track your spending with ease.",
   "login.google": "Sign in with Google",
   "login.termsPre": "By signing in, you agree to Rekam Uang's ",
   "login.termsLink": "terms of service",
@@ -300,6 +326,36 @@ const en: Dict = {
   "cat.delete": "Delete",
   "cat.deleteConfirm":
     'Delete category "{name}"? Its transactions move to Other.',
+
+  "mem.father": "Dad",
+  "mem.mother": "Mum",
+  "mem.kids": "Kids",
+  "mem.shared": "Shared",
+
+  "mem.manageTitle": "Manage family members",
+  "mem.manageHint":
+    "These labels mark who an expense belongs to, so you can filter the dashboard by person.",
+  "mem.add": "Add member",
+  "mem.namePlaceholder": "Member name",
+  "mem.cancel": "Cancel",
+  "mem.save": "Save",
+  "mem.builtin": "built-in",
+  "mem.rename": "Rename",
+  "mem.hide": "Hide",
+  "mem.delete": "Delete",
+  "mem.deleteConfirm":
+    'Delete member "{name}"? Their expenses move to Shared.',
+
+  "purge.title": "Delete old income data",
+  "purge.body":
+    "There are {n} income records from an earlier version. They're already hidden from the app, but still stored in the database.",
+  "purge.warning":
+    "Permanent deletion — this cannot be undone. Export first if you still need the numbers.",
+  "purge.button": "Delete permanently",
+  "purge.confirm": "Yes, delete {n} records",
+  "purge.cancel": "Cancel",
+  "purge.deleting": "Deleting…",
+  "purge.done": "{n} income records permanently deleted.",
 };
 
 export const messages: Record<Locale, Dict> = { id, en };

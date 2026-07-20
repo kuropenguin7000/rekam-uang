@@ -11,8 +11,14 @@ import {
 import { onAuthStateChanged } from "firebase/auth";
 import { clientAuth } from "@/lib/firebaseClient";
 import * as db from "@/lib/firestore";
-import type { NewTransaction, Transaction, UserCategory } from "@/lib/types";
+import type {
+  NewTransaction,
+  Transaction,
+  UserCategory,
+  UserMember,
+} from "@/lib/types";
 import { effectiveCategories, resolveCategory } from "@/lib/categories";
+import { effectiveMembers, resolveMember } from "@/lib/members";
 
 export interface MeUser {
   id: string;
@@ -25,6 +31,8 @@ export interface MeUser {
   categoryBudgets: Record<string, number>;
   /** Effective category list (built-ins + overrides + custom). */
   categories: UserCategory[];
+  /** Effective member list (built-ins + overrides + custom). */
+  members: UserMember[];
 }
 
 interface AppState {
@@ -40,6 +48,16 @@ interface AppState {
   categories: UserCategory[];
   /** resolve a category id (built-in/custom) to its meta, fallback "other" */
   categoryMeta: (id: string) => UserCategory;
+  /** effective member list (built-ins + overrides + custom) */
+  members: UserMember[];
+  /** resolve a member id to its meta; null for untagged ("") transactions */
+  memberMeta: (id: string) => UserMember | null;
+  addMember: (label: string, icon: string) => Promise<void>;
+  updateMember: (
+    id: string,
+    patch: { label?: string; icon?: string; hidden?: boolean }
+  ) => Promise<void>;
+  deleteMember: (id: string) => Promise<void>;
   addCategory: (label: string, icon: string, color: string) => Promise<void>;
   updateCategory: (
     id: string,
@@ -67,6 +85,7 @@ function toMeUser(uid: string, doc: db.UserDoc): MeUser {
     dailyBudget: doc.dailyBudget,
     categoryBudgets: doc.categoryBudgets,
     categories: effectiveCategories(doc.categoriesConfig),
+    members: effectiveMembers(doc.membersConfig),
   };
 }
 
@@ -132,7 +151,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const addExpense = useCallback(
     async (draft: NewTransaction): Promise<Transaction | null> => {
       if (!user) return null;
-      const clean = db.sanitizeNewTransaction(draft, user.categories);
+      const clean = db.sanitizeNewTransaction(draft, user.categories, user.members);
       if (!clean) return null;
       const transaction = await db.createTransaction(user.id, clean);
       setTransactions((prev) => [transaction, ...prev].sort(byDateDesc));
@@ -153,6 +172,10 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       if (patch.category !== undefined) {
         const allowed = new Set(user.categories.map((c) => c.id));
         clean.category = allowed.has(patch.category) ? patch.category : "other";
+      }
+      if (patch.member !== undefined) {
+        const allowed = new Set(user.members.map((m) => m.id));
+        clean.member = allowed.has(patch.member) ? patch.member : "";
       }
       if (patch.merchant !== undefined) clean.merchant = patch.merchant.slice(0, 80);
       if (patch.note !== undefined) clean.note = patch.note.slice(0, 280);
@@ -221,6 +244,11 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     (id: string) => resolveCategory(id, categories),
     [categories]
   );
+  const members = user?.members ?? effectiveMembers(null);
+  const memberMeta = useCallback(
+    (id: string) => resolveMember(id, members),
+    [members]
+  );
 
   const addCategory = useCallback(
     async (label: string, icon: string, color: string) => {
@@ -250,6 +278,32 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     [user, refresh]
   );
 
+  const addMember = useCallback(
+    async (label: string, icon: string) => {
+      if (!user) return;
+      await db.addMember(user.id, { label, icon });
+      await refresh();
+    },
+    [user, refresh]
+  );
+  const updateMember = useCallback(
+    async (id: string, patch: { label?: string; icon?: string; hidden?: boolean }) => {
+      if (!user) return;
+      await db.updateMember(user.id, id, patch);
+      await refresh();
+    },
+    [user, refresh]
+  );
+  const deleteMember = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      await db.deleteMember(user.id, id);
+      // Reassigns transactions to "shared" — reload them, not just the config.
+      await refresh();
+    },
+    [user, refresh]
+  );
+
   const value = useMemo<AppState>(
     () => ({
       ready,
@@ -260,6 +314,8 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       categoryBudgets,
       categories,
       categoryMeta,
+      members,
+      memberMeta,
       addExpense,
       updateTransaction,
       deleteTransaction,
@@ -269,6 +325,9 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      addMember,
+      updateMember,
+      deleteMember,
       refresh,
     }),
     [
@@ -280,6 +339,8 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       categoryBudgets,
       categories,
       categoryMeta,
+      members,
+      memberMeta,
       addExpense,
       updateTransaction,
       deleteTransaction,
@@ -289,6 +350,9 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       addCategory,
       updateCategory,
       deleteCategory,
+      addMember,
+      updateMember,
+      deleteMember,
       refresh,
     ]
   );

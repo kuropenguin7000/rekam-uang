@@ -30,7 +30,25 @@ export interface UserCategory {
   hidden: boolean;
 }
 
-/** Whether a transaction is money out (expense) or money in (income). */
+/**
+ * A family member as it applies to a given user: the 4 built-ins (optionally
+ * renamed or hidden via overrides) plus any custom members the user added.
+ * `label` holds an explicit override/custom label; for a built-in with no
+ * override it is "" and the localized `mem.<id>` name is used instead.
+ */
+export interface UserMember {
+  id: string;
+  label: string;
+  icon: string;
+  builtin: boolean;
+  hidden: boolean;
+}
+
+/**
+ * Everything the app records is an expense. "income" exists only to recognise
+ * and exclude documents written before income tracking was removed; nothing
+ * creates one any more.
+ */
 export type TxType = "expense" | "income";
 
 export interface Transaction {
@@ -38,7 +56,12 @@ export interface Transaction {
   amount: number;
   /** category id — a built-in id or a custom "c_*" id */
   category: string;
-  /** "expense" (default) or "income" */
+  /**
+   * Who the expense belongs to: a built-in member id or a custom "m_*" id.
+   * "" for entries saved before members existed.
+   */
+  member: string;
+  /** Always "expense" for anything the app writes today. */
   type: TxType;
   merchant: string;
   note: string;
@@ -47,11 +70,11 @@ export interface Transaction {
   createdAt: number;
 }
 
-/** A new expense/income entry from the add form, before it is saved. */
+/** A new expense from the add form, before it is saved. */
 export interface NewTransaction {
   amount: number;
   category: string;
-  type: TxType;
+  member: string;
   merchant: string;
   note: string;
   date: string;

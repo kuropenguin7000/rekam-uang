@@ -8,7 +8,7 @@ import { useI18n } from "./I18nProvider";
 
 /**
  * Per-category monthly budget caps. Progress is measured against the last 30
- * days of *expenses* (income excluded), so a cap is a rolling-monthly ceiling.
+ * days of spending, so a cap is a rolling-monthly ceiling.
  * Lists every non-hidden category (built-in or custom) that has a cap or spend.
  */
 export function CategoryBudgets() {
@@ -18,12 +18,12 @@ export function CategoryBudgets() {
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
 
-  // This month's (rolling 30 days) expense spend per category.
+  // This month's (rolling 30 days) spend per category.
   const spend = useMemo(() => {
     const cutoff = daysAgoISO(29);
     const m: Record<string, number> = {};
     for (const tx of transactions) {
-      if (tx.type === "income" || tx.date < cutoff) continue;
+      if (tx.date < cutoff) continue;
       m[tx.category] = (m[tx.category] ?? 0) + tx.amount;
     }
     return m;

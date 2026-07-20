@@ -20,8 +20,18 @@ import {
   sanitizeCategoriesConfig,
   type CategoriesConfig,
 } from "./categories";
+import {
+  MEMBERS,
+  sanitizeMembersConfig,
+  type MembersConfig,
+} from "./members";
 import { todayISO } from "./format";
-import type { NewTransaction, Transaction, UserCategory } from "./types";
+import type {
+  NewTransaction,
+  Transaction,
+  UserCategory,
+  UserMember,
+} from "./types";
 
 /**
  * Client-side Firestore data layer. Layout:
@@ -44,12 +54,15 @@ export interface UserDoc {
   categoryBudgets: Record<string, number>;
   /** Custom categories + built-in rename/hide overrides. */
   categoriesConfig: CategoriesConfig;
+  /** Custom family members + built-in rename/hide overrides. */
+  membersConfig: MembersConfig;
 }
 
 const DEFAULT_BUDGET = 5_000_000;
 /** Firestore batched writes are capped at 500 operations. */
 const BATCH_LIMIT = 450;
 const MAX_CUSTOM_CATEGORIES = 20;
+const MAX_CUSTOM_MEMBERS = 20;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function userRef(uid: string) {
@@ -86,6 +99,7 @@ function userFromData(data: Record<string, unknown>): UserDoc {
         : 0,
     categoryBudgets: sanitizeCategoryBudgets(data.categoryBudgets),
     categoriesConfig: sanitizeCategoriesConfig(data.categoriesConfig),
+    membersConfig: sanitizeMembersConfig(data.membersConfig),
   };
 }
 
@@ -96,6 +110,7 @@ function txFromSnap(snap: DocumentSnapshot | QueryDocumentSnapshot): Transaction
     id: snap.id,
     amount: typeof d.amount === "number" ? d.amount : 0,
     category: typeof d.category === "string" ? d.category : "other",
+    member: typeof d.member === "string" ? d.member : "",
     type: d.type === "income" ? "income" : "expense",
     merchant: typeof d.merchant === "string" ? d.merchant : "",
     note: typeof d.note === "string" ? d.note : "",
@@ -129,24 +144,33 @@ export async function ensureUser(
       dailyBudget: 0,
       categoryBudgets: {},
       categoriesConfig: { custom: [], overrides: {} },
+      membersConfig: { custom: [], overrides: {} },
     };
     await setDoc(ref, { ...docData, createdAt: Timestamp.now() });
     return docData;
   }
-  const existing = userFromData(snap.data() ?? {});
+  const raw = snap.data() ?? {};
+  const existing = userFromData(raw);
   const next: UserDoc = {
     ...existing,
     email: profile.email || existing.email,
     name: profile.name !== undefined ? (profile.name ?? null) : existing.name,
     image: profile.image !== undefined ? (profile.image ?? null) : existing.image,
   };
+  const patch: Record<string, unknown> = {};
   if (
     next.email !== existing.email ||
     next.name !== existing.name ||
     next.image !== existing.image
   ) {
-    await updateDoc(ref, { email: next.email, name: next.name, image: next.image });
+    patch.email = next.email;
+    patch.name = next.name;
+    patch.image = next.image;
   }
+  // Backfill membersConfig on docs created before members existed, so the
+  // field is always present once a user has signed in again.
+  if (!raw.membersConfig) patch.membersConfig = next.membersConfig;
+  if (Object.keys(patch).length > 0) await updateDoc(ref, patch);
   return next;
 }
 
@@ -164,7 +188,14 @@ export async function getUserDoc(uid: string): Promise<UserDoc | null> {
 export async function updateUser(
   uid: string,
   patch: Partial<
-    Pick<UserDoc, "budget" | "dailyBudget" | "categoryBudgets" | "categoriesConfig">
+    Pick<
+      UserDoc,
+      | "budget"
+      | "dailyBudget"
+      | "categoryBudgets"
+      | "categoriesConfig"
+      | "membersConfig"
+    >
   >
 ): Promise<void> {
   if (Object.keys(patch).length === 0) return;
@@ -177,39 +208,68 @@ export async function updateUser(
 
 /**
  * Validate + normalize a draft before writing (the same checks the old API
- * routes enforced): positive integer amount, category from the user's
- * effective list (income is always "other"), length caps, valid date.
- * Returns null if the amount is invalid.
+ * routes enforced): positive integer amount, category and member from the
+ * user's effective lists, length caps, valid date. Returns null if the amount
+ * is invalid.
  */
 export function sanitizeNewTransaction(
   draft: NewTransaction,
-  categories: UserCategory[]
+  categories: UserCategory[],
+  members: UserMember[]
 ): NewTransaction | null {
   const amount = Math.round(Number(draft.amount));
   if (!Number.isFinite(amount) || amount <= 0) return null;
-  const type = draft.type === "income" ? "income" : "expense";
   const allowed = new Set(categories.map((c) => c.id));
   const category =
-    type === "income"
-      ? "other"
-      : draft.category && allowed.has(draft.category)
-        ? draft.category
-        : "other";
+    draft.category && allowed.has(draft.category) ? draft.category : "other";
+  const allowedMembers = new Set(members.map((m) => m.id));
+  const member =
+    !draft.member || !allowedMembers.has(draft.member) ? "" : draft.member;
   return {
     amount,
     category,
-    type,
+    member,
     merchant: (draft.merchant ?? "").slice(0, 80),
     note: (draft.note ?? "").slice(0, 280),
     date: draft.date && DATE_RE.test(draft.date) ? draft.date : todayISO(),
   };
 }
 
+/**
+ * The app tracks spending only. Income was dropped from the product, so any
+ * `type: "income"` docs still in the database (logged before the change) are
+ * excluded here, at the single data-layer boundary — everything downstream is
+ * expense-only by construction and needs no type checks of its own.
+ * `purgeIncomeTransactions` removes them for good.
+ */
 export async function listTransactions(uid: string): Promise<Transaction[]> {
   const snap = await getDocs(
     query(txCol(uid), orderBy("date", "desc"), orderBy("createdAt", "desc"))
   );
-  return snap.docs.map(txFromSnap);
+  return snap.docs.map(txFromSnap).filter((t) => t.type !== "income");
+}
+
+/** How many legacy income docs are still stored (0 once purged). */
+export async function countIncomeTransactions(uid: string): Promise<number> {
+  const snap = await getDocs(query(txCol(uid), where("type", "==", "income")));
+  return snap.size;
+}
+
+/**
+ * Permanently delete every income transaction. Irreversible: there is no
+ * undo and no server-side backup — export first if the numbers still matter.
+ * Batched like the category/member reassigns, so a partial failure is safe to
+ * retry (it just picks up whatever is left).
+ */
+export async function purgeIncomeTransactions(uid: string): Promise<number> {
+  const snap = await getDocs(query(txCol(uid), where("type", "==", "income")));
+  const db = clientDb();
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + BATCH_LIMIT)) batch.delete(d.ref);
+    await batch.commit();
+  }
+  return snap.size;
 }
 
 export async function createTransaction(
@@ -218,8 +278,11 @@ export async function createTransaction(
 ): Promise<Transaction> {
   const ref = doc(txCol(uid));
   const createdAt = Timestamp.now();
-  await setDoc(ref, { ...data, createdAt });
-  return { id: ref.id, ...data, createdAt: createdAt.toMillis() };
+  // `type` is no longer a user choice, but firestore.rules still requires the
+  // field — everything the app writes is an expense.
+  const type = "expense" as const;
+  await setDoc(ref, { ...data, type, createdAt });
+  return { id: ref.id, ...data, type, createdAt: createdAt.toMillis() };
 }
 
 export async function updateTransaction(
@@ -248,6 +311,19 @@ async function reassignCategory(uid: string, fromId: string): Promise<void> {
     const batch = writeBatch(db);
     for (const d of snap.docs.slice(i, i + BATCH_LIMIT)) {
       batch.update(d.ref, { category: "other" });
+    }
+    await batch.commit();
+  }
+}
+
+/** Same as reassignCategory, but for members — deleted members become "shared". */
+async function reassignMember(uid: string, fromId: string): Promise<void> {
+  const snap = await getDocs(query(txCol(uid), where("member", "==", fromId)));
+  const db = clientDb();
+  for (let i = 0; i < snap.docs.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const d of snap.docs.slice(i, i + BATCH_LIMIT)) {
+      batch.update(d.ref, { member: "shared" });
     }
     await batch.commit();
   }
@@ -325,4 +401,75 @@ export async function deleteCategory(uid: string, id: string): Promise<void> {
   // still listed, so retrying the delete is safe and picks up the stragglers.
   await reassignCategory(uid, id);
   await updateUser(uid, { categoriesConfig: config });
+}
+
+// ---------------------------------------------------------------------------
+// Member management (mirrors the category functions above)
+// ---------------------------------------------------------------------------
+
+function genMemberId(): string {
+  return "m_" + Math.random().toString(36).slice(2, 10);
+}
+
+async function loadMembers(uid: string): Promise<MembersConfig> {
+  const docData = await getUserDoc(uid);
+  return docData?.membersConfig ?? { custom: [], overrides: {} };
+}
+
+/** Add a custom family member (max 20). */
+export async function addMember(
+  uid: string,
+  input: { label: string; icon?: string }
+): Promise<void> {
+  const label = input.label.trim().slice(0, 40);
+  if (!label) return;
+  const config = await loadMembers(uid);
+  if (config.custom.length >= MAX_CUSTOM_MEMBERS) return;
+  config.custom.push({
+    id: genMemberId(),
+    label,
+    icon: (input.icon || "🧑").slice(0, 8),
+  });
+  await updateUser(uid, { membersConfig: config });
+}
+
+/** Edit a member. Built-ins: rename + hide only. Custom: label/icon. */
+export async function updateMember(
+  uid: string,
+  id: string,
+  patch: { label?: string; icon?: string; hidden?: boolean }
+): Promise<void> {
+  const config = await loadMembers(uid);
+
+  if (id in MEMBERS) {
+    const ov = config.overrides[id] ?? {};
+    if (typeof patch.label === "string") {
+      const l = patch.label.trim().slice(0, 40);
+      if (l) ov.label = l;
+      else delete ov.label;
+    }
+    if (typeof patch.hidden === "boolean") ov.hidden = patch.hidden;
+    if (Object.keys(ov).length) config.overrides[id] = ov;
+    else delete config.overrides[id];
+  } else {
+    const m = config.custom.find((x) => x.id === id);
+    if (!m) return;
+    if (typeof patch.label === "string" && patch.label.trim())
+      m.label = patch.label.trim().slice(0, 40);
+    if (typeof patch.icon === "string" && patch.icon) m.icon = patch.icon.slice(0, 8);
+  }
+  await updateUser(uid, { membersConfig: config });
+}
+
+/** Delete a custom member and reassign its transactions to "shared". */
+export async function deleteMember(uid: string, id: string): Promise<void> {
+  if (id in MEMBERS) return; // built-ins can't be deleted
+  const config = await loadMembers(uid);
+  const idx = config.custom.findIndex((x) => x.id === id);
+  if (idx === -1) return;
+  config.custom.splice(idx, 1);
+
+  // Transactions first, config last — same retry-safe ordering as categories.
+  await reassignMember(uid, id);
+  await updateUser(uid, { membersConfig: config });
 }

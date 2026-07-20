@@ -5,7 +5,7 @@
 > **Product name:** "Rekam Uang" (user-facing). The codebase folder is still
 > `spend-wise` — an infrastructure identifier, intentionally left unchanged.
 
-A manual-entry **expense + income tracker** for the Indonesian market (default
+A manual-entry **expense tracker** for the Indonesian market (default
 locale `id`, also `en`). Users log transactions with an add form; a dashboard
 visualizes cash flow; a rule-based "Wawasan" (Insights) panel gives savings
 advice. **No AI, no billing, NO SERVER — everything is free** and runs on the
@@ -65,12 +65,18 @@ npm run dev                 # http://localhost:3000
 - `users/{uid}`: email, name, image, budget (default 5,000,000), dailyBudget
   (0 = auto = budget/30), **categoryBudgets** (native map {cat: amount}),
   **categoriesConfig** (native map: custom categories + built-in rename/hide
-  overrides), createdAt.
+  overrides), **membersConfig** (same shape, for family members), createdAt.
 - `users/{uid}/transactions/{autoId}`: amount, category (string id — built-in
-  or custom `c_*`), type ("expense" | "income"), merchant, note,
+  or custom `c_*`), **member** (built-in id or custom `m_*`; "" = untagged),
+  type (always "expense" — see below), merchant, note,
   **date (string yyyy-mm-dd — keep it a string; lexicographic ordering + all
   client aggregation depend on it)**, createdAt (Timestamp → millis at the
   data-layer boundary via `txFromSnap`).
+- **Income was removed from the product.** `createTransaction` always writes
+  `type: "expense"` (firestore.rules still requires the field), and
+  `listTransactions` filters out any legacy `type: "income"` docs at that
+  single boundary — so nothing downstream needs a type check. `IncomePurge`
+  (account page) deletes the leftovers and hides itself once the count is 0.
 - One composite index ([firestore.indexes.json](firestore.indexes.json)):
   `(date desc, createdAt desc)`.
 - `updateUser` uses `updateDoc` (not merge) so map fields are replaced
@@ -86,8 +92,8 @@ npm run dev                 # http://localhost:3000
 ## Features
 - **Manual entry**: [AddTransactionModal.tsx](src/components/AddTransactionModal.tsx)
   (+ header button and mobile FAB in [src/app/page.tsx](src/app/page.tsx));
-  expense/income toggle (income has no category — forced "other"), optional
-  note, DatePicker. 2 tabs: Dashboard (default) + Wawasan.
+  amount, category, **member pills**, optional note, DatePicker. 2 tabs:
+  Dashboard (default) + Wawasan.
 - **Mobile-first inputs** (the owner uses the app daily on a phone):
   [DatePicker.tsx](src/components/DatePicker.tsx) is a button trigger (NO
   free-text typing — no keyboard on mobile) whose calendar renders as a
@@ -95,13 +101,19 @@ npm run dev                 # http://localhost:3000
   (with drop-up near the viewport bottom) on `sm:`+. All money inputs keep raw
   digits in state and display them grouped via `groupDigits`
   ([src/lib/format.ts](src/lib/format.ts)): "1500000" → "1.500.000".
-- **Dashboard**: Pemasukan/Pengeluaran/Selisih; charts, budget bar, category
-  breakdown are expense-only; pagination (10/page, filler rows); custom date
-  range for everyone.
+- **Dashboard**: total spend + transaction count; charts, budget bar, category
+  breakdown; pagination (10/page, filler rows); custom date range for everyone.
+- **Member labels** ([src/lib/members.ts](src/lib/members.ts)): every expense is
+  tagged with a family member (built-ins Ayah/Ibu/Anak/Bersama, renameable +
+  hideable, plus custom `m_*`; managed in
+  [MemberManager.tsx](src/components/MemberManager.tsx) on the account page).
+  The dashboard member chips scope **everything** — stats, charts, list,
+  pagination, export. Household-level budget UI (budget bar, CategoryBudgets)
+  hides while a member is selected, since those caps aren't per-person.
 - **Insights**: [InsightsPanel.tsx](src/components/InsightsPanel.tsx) computes
   `generateInsights(transactions, budget, locale)` ([src/lib/insights.ts](src/lib/insights.ts))
   **client-side in a useMemo** — pure rules (spikes, recurring charges, small
-  spends, budget benchmark), income filtered out.
+  spends, budget benchmark).
 - **Per-category budgets** + **editable categories** (rename/hide built-ins,
   CRUD custom; delete reassigns to "other") via `effectiveCategories`/
   `resolveCategory`; category logic lives in firestore.ts (addCategory etc.).
@@ -111,8 +123,9 @@ npm run dev                 # http://localhost:3000
 - **Export**: built **in the browser** from store data —
   [ExportMenu.tsx](src/components/ExportMenu.tsx) dynamically imports
   [src/lib/export.ts](src/lib/export.ts) (exceljs resolves to its browser
-  bundle via the package "browser" field; pdf-lib is browser-first).
-  Expense-only, localized category names.
+  bundle via the package "browser" field; pdf-lib is browser-first). Localized
+  category + member names, a member column, and a per-member breakdown;
+  follows the dashboard's date **and** member filter.
 - **i18n**: static HTML prerenders in `id`; [I18nProvider.tsx](src/components/I18nProvider.tsx)
   restores the stored locale from localStorage in a post-hydration effect
   (NOT a state initializer — avoids hydration mismatches).
@@ -133,8 +146,9 @@ config); optional `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1`.
   Auth authorized domains.
 
 ## Known limitations / follow-ups
-- **Export is expense-only** (income export = follow-up).
-- **Income has no sub-categories** (just amount + source).
+- **No income tracking** (removed deliberately — the monthly budget is set from
+  income outside the app). The `type` field survives only to exclude legacy
+  income docs; drop it once `IncomePurge` has run and the component is deleted.
 - Notification log is **per-browser** (localStorage), not synced server-side.
 - Popup sign-in can be blocked in mobile in-app browsers; `signInWithRedirect`
   is future work.

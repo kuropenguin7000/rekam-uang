@@ -21,6 +21,10 @@ export interface ExportData {
   to?: string;
   /** category id -> display name (localized built-ins + custom labels) */
   categoryNames?: Record<string, string>;
+  /** member id -> display name (localized built-ins + custom labels) */
+  memberNames?: Record<string, string>;
+  /** display name of the member these rows are scoped to, if any */
+  memberFilter?: string;
 }
 
 /** Export-specific column/section labels, kept colocated to avoid bloating the UI dictionary. */
@@ -35,6 +39,9 @@ const LABELS: Record<Locale, Record<string, string>> = {
     txCount: "Jumlah transaksi",
     byCategory: "Per kategori",
     category: "Kategori",
+    member: "Anggota",
+    allMembers: "Semua anggota",
+    byMember: "Per anggota",
     amount: "Jumlah",
     share: "Porsi",
     date: "Tanggal",
@@ -54,6 +61,9 @@ const LABELS: Record<Locale, Record<string, string>> = {
     txCount: "Transactions",
     byCategory: "By category",
     category: "Category",
+    member: "Member",
+    allMembers: "All members",
+    byMember: "By member",
     amount: "Amount",
     share: "Share",
     date: "Date",
@@ -69,27 +79,55 @@ function categoryLabel(data: ExportData, id: string): string {
   return data.categoryNames?.[id] ?? id;
 }
 
+/** Untagged rows (entries saved before members existed) get an em dash. */
+function memberLabel(data: ExportData, id: string): string {
+  if (!id) return "—";
+  return data.memberNames?.[id] ?? id;
+}
+
+interface Breakdown {
+  id: string;
+  label: string;
+  value: number;
+  pct: number;
+}
+
 interface Summary {
   total: number;
   count: number;
-  byCategory: { id: string; label: string; value: number; pct: number }[];
+  byCategory: Breakdown[];
+  byMember: Breakdown[];
 }
 
-function summarize(data: ExportData): Summary {
-  const total = data.transactions.reduce((s, t) => s + t.amount, 0);
+function group(
+  data: ExportData,
+  key: (t: Transaction) => string,
+  label: (id: string) => string,
+  total: number
+): Breakdown[] {
   const totals = new Map<string, number>();
   for (const t of data.transactions) {
-    totals.set(t.category, (totals.get(t.category) ?? 0) + t.amount);
+    const k = key(t);
+    totals.set(k, (totals.get(k) ?? 0) + t.amount);
   }
-  const byCategory = [...totals.entries()]
+  return [...totals.entries()]
     .map(([id, value]) => ({
       id,
-      label: categoryLabel(data, id),
+      label: label(id),
       value,
       pct: total > 0 ? (value / total) * 100 : 0,
     }))
     .sort((a, b) => b.value - a.value);
-  return { total, count: data.transactions.length, byCategory };
+}
+
+function summarize(data: ExportData): Summary {
+  const total = data.transactions.reduce((s, t) => s + t.amount, 0);
+  return {
+    total,
+    count: data.transactions.length,
+    byCategory: group(data, (t) => t.category, (id) => categoryLabel(data, id), total),
+    byMember: group(data, (t) => t.member, (id) => memberLabel(data, id), total),
+  };
 }
 
 function periodText(data: ExportData, L: Record<string, string>): string {
@@ -121,12 +159,20 @@ function csvCell(value: string | number): string {
 
 export function buildCsv(data: ExportData): string {
   const L = LABELS[data.locale];
-  const header = [L.date, L.category, L.merchant, L.note, `${L.amount} (Rp)`];
+  const header = [
+    L.date,
+    L.member,
+    L.category,
+    L.merchant,
+    L.note,
+    `${L.amount} (Rp)`,
+  ];
   const lines = [header.map(csvCell).join(",")];
   for (const t of data.transactions) {
     lines.push(
       [
         t.date,
+        memberLabel(data, t.member),
         categoryLabel(data, t.category),
         t.merchant,
         t.note,
@@ -157,6 +203,7 @@ export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   const tx = wb.addWorksheet(L.transactions);
   tx.columns = [
     { header: L.date, key: "date", width: 14 },
+    { header: L.member, key: "member", width: 16 },
     { header: L.category, key: "category", width: 20 },
     { header: L.merchant, key: "merchant", width: 24 },
     { header: L.note, key: "note", width: 30 },
@@ -169,6 +216,7 @@ export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   for (const t of data.transactions) {
     const row = tx.addRow({
       date: t.date,
+      member: memberLabel(data, t.member),
       category: categoryLabel(data, t.category),
       merchant: t.merchant,
       note: t.note,
@@ -181,7 +229,9 @@ export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   txTotal.font = { bold: true };
   txTotal.getCell("amount").numFmt = moneyFmt;
   tx.views = [{ state: "frozen", ySplit: 1 }];
-  tx.autoFilter = { from: "A1", to: "E1" };
+  // Six columns now (member inserted at B) — the filter must cover A..F so the
+  // member column is filterable in Excel too.
+  tx.autoFilter = { from: "A1", to: "F1" };
 
   // ---- Summary sheet (second) ----
   const s = wb.addWorksheet(L.summary);
@@ -190,6 +240,7 @@ export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   titleRow.font = { size: 14, bold: true };
   s.addRow([L.account, `${data.account.name ?? ""} <${data.account.email}>`]);
   s.addRow([L.period, periodText(data, L)]);
+  s.addRow([L.member, data.memberFilter ?? L.allMembers]);
   s.addRow([L.generated, data.generatedAt.toLocaleString(data.locale === "id" ? "id-ID" : "en-GB")]);
   s.addRow([]);
   const totalRow = s.addRow([L.totalSpent, summary.total]);
@@ -205,6 +256,21 @@ export async function buildXlsx(data: ExportData): Promise<ArrayBuffer> {
   for (const c of summary.byCategory) {
     const r = s.addRow([c.label, c.value, `${c.pct.toFixed(1)}%`]);
     r.getCell(2).numFmt = moneyFmt;
+  }
+
+  // Per-member breakdown — the whole point of the label, so it gets its own
+  // block. Redundant when the export is already scoped to one member.
+  if (!data.memberFilter && summary.byMember.length > 1) {
+    s.addRow([]);
+    const memHeader = s.addRow([L.byMember, L.amount, L.share]);
+    memHeader.font = { bold: true };
+    memHeader.eachCell((c) => {
+      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEEF2FF" } };
+    });
+    for (const m of summary.byMember) {
+      const r = s.addRow([m.label, m.value, `${m.pct.toFixed(1)}%`]);
+      r.getCell(2).numFmt = moneyFmt;
+    }
   }
 
   // Open the workbook on the transactions sheet (first tab).
@@ -289,6 +355,11 @@ export async function buildPdf(data: ExportData): Promise<Uint8Array> {
   y -= 13;
   text(`${L.period}: ${periodText(data, L)}`, M, y, { size: 9, color: muted });
   y -= 13;
+  text(`${L.member}: ${data.memberFilter ?? L.allMembers}`, M, y, {
+    size: 9,
+    color: muted,
+  });
+  y -= 13;
   text(`${L.generated}: ${data.generatedAt.toLocaleString(dtLocale)}`, M, y, {
     size: 9,
     color: muted,
@@ -302,11 +373,13 @@ export async function buildPdf(data: ExportData): Promise<Uint8Array> {
   y -= 26;
 
   // ---- Transactions table (primary content: every filtered line item) ----
-  // Columns: Date | Category | Merchant | Amount (right-aligned)
+  // Columns: Date | Member | Category | Merchant | Amount (right-aligned).
+  // Widths were rebalanced to fit the member column without overflowing A4.
   const cols = [
-    { key: "date", label: L.date, x: M, w: 70 },
-    { key: "category", label: L.category, x: M + 74, w: 95 },
-    { key: "merchant", label: L.merchant, x: M + 173, w: 210 },
+    { key: "date", label: L.date, x: M, w: 62 },
+    { key: "member", label: L.member, x: M + 66, w: 70 },
+    { key: "category", label: L.category, x: M + 140, w: 88 },
+    { key: "merchant", label: L.merchant, x: M + 232, w: 150 },
     { key: "amount", label: L.amount, x: PAGE.w - M, w: 100, right: true },
   ] as const;
   const rowH = 18;
@@ -360,37 +433,45 @@ export async function buildPdf(data: ExportData): Promise<Uint8Array> {
       });
     }
     text(t.date, cols[0].x, y, { size: 9 });
-    text(fit(categoryLabel(data, t.category), cols[1].w, 9), cols[1].x, y, {
+    text(fit(memberLabel(data, t.member), cols[1].w, 9), cols[1].x, y, {
       size: 9,
     });
-    text(fit(t.merchant || "—", cols[2].w, 9), cols[2].x, y, { size: 9 });
+    text(fit(categoryLabel(data, t.category), cols[2].w, 9), cols[2].x, y, {
+      size: 9,
+    });
+    text(fit(t.merchant || "—", cols[3].w, 9), cols[3].x, y, { size: 9 });
     const amt = formatCurrency(t.amount);
     const w = font.widthOfTextAtSize(amt, 9);
     text(amt, tableRight - w, y, { size: 9 });
     y -= rowH;
   });
 
-  // ---- Category breakdown (trailing summary, after the full item list) ----
-  if (summary.byCategory.length > 0) {
-    const needed = (summary.byCategory.length + 2) * 14 + 12;
+  // ---- Trailing breakdowns, after the full item list ----
+  const drawBreakdown = (heading: string, rows: Breakdown[]) => {
+    if (rows.length === 0) return;
+    const needed = (rows.length + 2) * 14 + 12;
     if (y - needed < M) {
       page = doc.addPage([PAGE.w, PAGE.h]);
       y = PAGE.h - M;
     } else {
       y -= 18;
     }
-    text(L.byCategory, M, y, { size: 11, font: bold });
+    text(heading, M, y, { size: 11, font: bold });
     y -= 16;
-    for (const c of summary.byCategory) {
-      text(`• ${c.label}`, M + 6, y, { size: 9, color: muted });
-      text(
-        `${formatCurrency(c.value)}  (${c.pct.toFixed(1)}%)`,
-        M + 220,
-        y,
-        { size: 9, color: muted }
-      );
+    for (const r of rows) {
+      text(`• ${r.label}`, M + 6, y, { size: 9, color: muted });
+      text(`${formatCurrency(r.value)}  (${r.pct.toFixed(1)}%)`, M + 220, y, {
+        size: 9,
+        color: muted,
+      });
       y -= 14;
     }
+  };
+
+  drawBreakdown(L.byCategory, summary.byCategory);
+  // Redundant when the report is already scoped to a single member.
+  if (!data.memberFilter && summary.byMember.length > 1) {
+    drawBreakdown(L.byMember, summary.byMember);
   }
 
   return doc.save();

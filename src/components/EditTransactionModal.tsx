@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { groupDigits, todayISO } from "@/lib/format";
 import { categoryDisplayName } from "@/lib/categoryName";
+import { memberDisplayName } from "@/lib/memberName";
 import type { Transaction } from "@/lib/types";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
@@ -14,10 +15,12 @@ interface Props {
 }
 
 export function EditTransactionModal({ transaction, onClose }: Props) {
-  const { updateTransaction, categories } = useExpenses();
+  const { updateTransaction, categories, members } = useExpenses();
   const { t } = useI18n();
+  const visibleMembers = members.filter((m) => !m.hidden);
   const [amount, setAmount] = useState(String(transaction.amount));
   const [category, setCategory] = useState<string>(transaction.category);
+  const [member, setMember] = useState<string>(transaction.member);
   const [merchant, setMerchant] = useState(transaction.merchant);
   const [date, setDate] = useState(transaction.date);
   const [saving, setSaving] = useState(false);
@@ -29,6 +32,7 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
     await updateTransaction(transaction.id, {
       amount: Math.round(value),
       category,
+      member,
       merchant,
       date,
     });
@@ -71,6 +75,27 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
                 ))}
             </select>
           </Field>
+          {visibleMembers.length > 0 && (
+            <Field label={t("receipt.member")}>
+              <div className="flex flex-wrap gap-1.5">
+                {visibleMembers.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMember(m.id)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
+                      member === m.id
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-surface text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span className="mr-1">{m.icon}</span>
+                    {memberDisplayName(m, t)}
+                  </button>
+                ))}
+              </div>
+            </Field>
+          )}
           <Field label={t("receipt.merchant")}>
             <input
               value={merchant}

@@ -20,7 +20,11 @@ service cloud.firestore {
           && d.budget is int && d.budget >= 0
           && d.dailyBudget is int && d.dailyBudget >= 0
           && d.categoryBudgets is map
-          && d.categoriesConfig is map;
+          && d.categoriesConfig is map
+          // Optional: user docs created before members existed have no such
+          // field, and an update's request.resource.data is the merged doc —
+          // requiring it outright would lock those users out of every write.
+          && (!('membersConfig' in d) || d.membersConfig is map);
       }
 
       allow read: if isOwner(uid);
@@ -34,6 +38,9 @@ service cloud.firestore {
           return d.amount is int && d.amount > 0
             && d.type in ['expense', 'income']
             && d.category is string && d.category.size() <= 40
+            // Optional for the same reason: transactions written before
+            // members existed carry no member field.
+            && (!('member' in d) || (d.member is string && d.member.size() <= 40))
             && d.merchant is string && d.merchant.size() <= 80
             && d.note is string && d.note.size() <= 280
             && d.date is string && d.date.matches('\\d{4}-\\d{2}-\\d{2}')

@@ -30,8 +30,7 @@ export function generateInsights(
   const en = locale === "en";
   const insights: Insight[] = [];
 
-  // Insights are about spending; income never counts against budgets.
-  const transactions = allTransactions.filter((t) => t.type !== "income");
+  const transactions = allTransactions;
 
   if (transactions.length === 0) {
     return [

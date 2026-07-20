@@ -57,14 +57,13 @@ const SEVERITY_RANK: Record<NotificationSeverity, number> = {
 export function computeNotifications(input: NotificationInput): AppNotification[] {
   const out: AppNotification[] = [];
 
-  // --- Budget usage (expenses only; income doesn't count against budgets) ---
+  // --- Budget usage ---
   const monthCutoff = daysAgoISO(29);
   const today = todayISO();
   let monthSpend = 0;
   let todaySpend = 0;
   const monthByCat: Record<string, number> = {};
   for (const t of input.transactions) {
-    if (t.type === "income") continue;
     if (t.date >= monthCutoff) {
       monthSpend += t.amount;
       if (t.category) {

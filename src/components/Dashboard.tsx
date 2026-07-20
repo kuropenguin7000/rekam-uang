@@ -18,6 +18,7 @@ import {
   todayISO,
 } from "@/lib/format";
 import { categoryDisplayName } from "@/lib/categoryName";
+import { memberDisplayName } from "@/lib/memberName";
 import type { Range } from "@/lib/types";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
@@ -48,9 +49,13 @@ export function Dashboard() {
     deleteTransaction,
     user,
     categoryMeta,
+    members,
+    memberMeta,
   } = useExpenses();
   const { t } = useI18n();
   const [range, setRange] = useState<Range | "custom">("month");
+  /** "" = everyone; otherwise a member id ("who spent this"). */
+  const [member, setMember] = useState("");
   const [start, setStart] = useState(() => daysAgoISO(29));
   const [end, setEnd] = useState(() => todayISO());
   const [editingBudget, setEditingBudget] = useState(false);
@@ -71,24 +76,24 @@ export function Dashboard() {
     return {}; // all time
   }, [range, isCustom, start, end]);
 
-  const filtered = useMemo(
+  const dateFiltered = useMemo(
     () =>
       isCustom
         ? filterBetween(transactions, start, end)
         : filterByRange(transactions, range as Range),
     [transactions, range, isCustom, start, end]
   );
-  // Expenses drive the charts + budget; income feeds the cash-flow totals.
-  const expenses = useMemo(
-    () => filtered.filter((tx) => tx.type !== "income"),
-    [filtered]
+  // Everything below (stats, charts, list, pagination) reads `filtered`, so
+  // picking a member scopes the whole dashboard to that person.
+  const filtered = useMemo(
+    () => (member ? dateFiltered.filter((tx) => tx.member === member) : dateFiltered),
+    [dateFiltered, member]
   );
+  const visibleMembers = members.filter((m) => !m.hidden);
+  const activeMember = member ? memberMeta(member) : null;
+  // The data layer already excludes income, so every row here is an expense.
+  const expenses = filtered;
   const spent = useMemo(() => total(expenses), [expenses]);
-  const incomeTotal = useMemo(
-    () => total(filtered.filter((tx) => tx.type === "income")),
-    [filtered]
-  );
-  const net = incomeTotal - spent;
   const categories = useMemo(
     () =>
       byCategory(expenses, (id) => {
@@ -133,7 +138,7 @@ export function Dashboard() {
   const fillerCount =
     totalPages > 1 ? Math.max(0, TX_PAGE_SIZE - pageItems.length) : 0;
   // Jump back to page 1 when the filter changes; clamp if the list shrinks.
-  useEffect(() => setPage(1), [range, isCustom, start, end]);
+  useEffect(() => setPage(1), [range, isCustom, start, end, member]);
   useEffect(() => setPage((p) => Math.min(p, totalPages)), [totalPages]);
 
   function saveDaily() {
@@ -178,9 +183,41 @@ export function Dashboard() {
             {t("dash.custom")}
           </button>
         </div>
-          <ExportMenu from={exportRange.from} to={exportRange.to} />
+          <ExportMenu from={exportRange.from} to={exportRange.to} member={member} />
         </div>
       </div>
+
+      {visibleMembers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-surface p-2.5 shadow-sm">
+          <span className="mr-1 text-xs font-medium text-muted">
+            {t("dash.memberFilter")}
+          </span>
+          <button
+            onClick={() => setMember("")}
+            className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
+              member === ""
+                ? "bg-primary text-white"
+                : "text-muted hover:text-foreground"
+            }`}
+          >
+            {t("dash.memberAll")}
+          </button>
+          {visibleMembers.map((m) => (
+            <button
+              key={m.id}
+              onClick={() => setMember(m.id)}
+              className={`rounded-lg px-2.5 py-1.5 text-sm font-medium transition ${
+                member === m.id
+                  ? "bg-primary text-white"
+                  : "text-muted hover:text-foreground"
+              }`}
+            >
+              <span className="mr-1">{m.icon}</span>
+              {memberDisplayName(m, t)}
+            </button>
+          ))}
+        </div>
+      )}
 
       {isCustom && (
         <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3 shadow-sm">
@@ -196,18 +233,17 @@ export function Dashboard() {
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Stat
-          label={t("dash.income")}
-          value={"+" + formatCurrency(incomeTotal)}
-          valueClassName="text-success"
+          label={
+            activeMember
+              ? t("dash.expenseOf", { name: memberDisplayName(activeMember, t) })
+              : t("dash.expense")
+          }
+          value={formatCurrency(spent)}
+          accent
         />
-        <Stat label={t("dash.expense")} value={formatCurrency(spent)} accent />
-        <Stat
-          label={t("dash.net")}
-          value={(net >= 0 ? "+" : "−") + formatCurrency(Math.abs(net))}
-          valueClassName={net >= 0 ? "text-success" : "text-danger"}
-        />
+        <Stat label={t("dash.txCount")} value={String(filtered.length)} />
       </div>
 
       {/* Monthly budget — editable from any view. */}
@@ -246,7 +282,9 @@ export function Dashboard() {
         )}
       </div>
 
-      {budgetForRange > 0 && (
+      {/* Budgets are set for the whole household — comparing one member's
+          spending against them would overstate how much is left. */}
+      {budgetForRange > 0 && !activeMember && (
         <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium">
@@ -288,7 +326,7 @@ export function Dashboard() {
         </div>
       )}
 
-      <CategoryBudgets />
+      {!activeMember && <CategoryBudgets />}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card title={t("dash.byCategory")}>
@@ -343,36 +381,30 @@ export function Dashboard() {
           <>
           <ul>
             {pageItems.map((tx) => {
-              const isIncome = tx.type === "income";
               const cat = categoryMeta(tx.category);
-              const catLabel = isIncome
-                ? t("receipt.income")
-                : categoryDisplayName(cat, t);
+              const catLabel = categoryDisplayName(cat, t);
+              const mem = memberMeta(tx.member);
               return (
                 <li
                   key={tx.id}
                   className="group flex items-center gap-3 border-t border-border py-2.5 first:border-t-0"
                 >
                   <span
-                    className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-base ${
-                      isIncome ? "bg-success-soft" : ""
-                    }`}
-                    style={isIncome ? undefined : { background: cat.color + "22" }}
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-base"
+                    style={{ background: cat.color + "22" }}
                   >
-                    {isIncome ? "💰" : cat.icon}
+                    {cat.icon}
                   </span>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">
                       {tx.merchant || catLabel}
                     </p>
                     <p className="truncate text-xs text-muted">
+                      {mem ? `${mem.icon} ${memberDisplayName(mem, t)} · ` : ""}
                       {catLabel} · {formatDate(tx.date)}
                     </p>
                   </div>
-                  <span
-                    className={`text-sm font-semibold ${isIncome ? "text-success" : ""}`}
-                  >
-                    {isIncome ? "+" : ""}
+                  <span className="text-sm font-semibold">
                     {formatCurrency(tx.amount)}
                   </span>
                   <div className="flex items-center gap-1">
@@ -507,18 +539,16 @@ function Stat({
   label,
   value,
   accent,
-  valueClassName,
 }: {
   label: string;
   value: string;
   accent?: boolean;
-  valueClassName?: string;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
       <span className="text-sm text-muted">{label}</span>
       <p
-        className={`mt-1 text-2xl font-bold ${valueClassName ?? (accent ? "text-primary" : "")}`}
+        className={`mt-1 text-2xl font-bold ${accent ? "text-primary" : ""}`}
       >
         {value}
       </p>

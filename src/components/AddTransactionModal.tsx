@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { groupDigits, todayISO } from "@/lib/format";
 import { categoryDisplayName } from "@/lib/categoryName";
-import type { TxType } from "@/lib/types";
+import { memberDisplayName } from "@/lib/memberName";
+import { DEFAULT_MEMBER } from "@/lib/members";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { DatePicker } from "./DatePicker";
@@ -13,18 +14,22 @@ interface Props {
 }
 
 export function AddTransactionModal({ onClose }: Props) {
-  const { addExpense, categories } = useExpenses();
+  const { addExpense, categories, members } = useExpenses();
   const { t } = useI18n();
   const visible = categories.filter((c) => !c.hidden);
-  const [type, setType] = useState<TxType>("expense");
+  const visibleMembers = members.filter((m) => !m.hidden);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState<string>(visible[0]?.id ?? "other");
+  // Default to household spending; the user picks a person when it's theirs.
+  const [member, setMember] = useState<string>(
+    visibleMembers.some((m) => m.id === DEFAULT_MEMBER)
+      ? DEFAULT_MEMBER
+      : (visibleMembers[0]?.id ?? "")
+  );
   const [merchant, setMerchant] = useState("");
   const [note, setNote] = useState("");
   const [date, setDate] = useState(todayISO());
   const [saving, setSaving] = useState(false);
-
-  const isIncome = type === "income";
 
   async function save() {
     const value = Number(amount);
@@ -32,8 +37,8 @@ export function AddTransactionModal({ onClose }: Props) {
     setSaving(true);
     await addExpense({
       amount: Math.round(value),
-      category: isIncome ? "other" : category,
-      type,
+      category,
+      member,
       merchant: merchant.trim(),
       note: note.trim(),
       date,
@@ -53,26 +58,6 @@ export function AddTransactionModal({ onClose }: Props) {
       >
         <h3 className="mb-4 text-base font-semibold">{t("add.title")}</h3>
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-1 rounded-xl border border-border bg-surface-muted p-1">
-            <button
-              type="button"
-              onClick={() => setType("expense")}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                !isIncome ? "bg-surface shadow-sm" : "text-muted"
-              }`}
-            >
-              {t("add.typeExpense")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setType("income")}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-                isIncome ? "bg-surface text-success shadow-sm" : "text-muted"
-              }`}
-            >
-              {t("add.typeIncome")}
-            </button>
-          </div>
           <Field label={t("receipt.amount")}>
             <input
               type="text"
@@ -83,25 +68,46 @@ export function AddTransactionModal({ onClose }: Props) {
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-          {!isIncome && (
-            <Field label={t("receipt.category")}>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
-              >
-                {visible.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.icon} {categoryDisplayName(c, t)}
-                  </option>
+          <Field label={t("receipt.category")}>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
+            >
+              {visible.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.icon} {categoryDisplayName(c, t)}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {visibleMembers.length > 0 && (
+            <Field label={t("receipt.member")}>
+              {/* Pills, not a <select>: one tap on mobile, and the whole
+                  household fits on screen at a glance. */}
+              <div className="flex flex-wrap gap-1.5">
+                {visibleMembers.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setMember(m.id)}
+                    className={`rounded-lg border px-2.5 py-1.5 text-sm font-medium transition ${
+                      member === m.id
+                        ? "border-primary bg-primary text-white"
+                        : "border-border bg-surface text-muted hover:text-foreground"
+                    }`}
+                  >
+                    <span className="mr-1">{m.icon}</span>
+                    {memberDisplayName(m, t)}
+                  </button>
                 ))}
-              </select>
+              </div>
             </Field>
           )}
-          <Field label={isIncome ? t("receipt.source") : t("receipt.merchant")}>
+          <Field label={t("receipt.merchant")}>
             <input
               value={merchant}
-              placeholder={isIncome ? "" : t("receipt.merchantPlaceholder")}
+              placeholder={t("receipt.merchantPlaceholder")}
               maxLength={80}
               onChange={(e) => setMerchant(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"

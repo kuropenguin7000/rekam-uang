@@ -8,6 +8,8 @@ import { ThemeToggle } from "@/components/ThemeProvider";
 import { Avatar } from "@/components/Avatar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { CategoryManager } from "@/components/CategoryManager";
+import { MemberManager } from "@/components/MemberManager";
+import { IncomePurge } from "@/components/IncomePurge";
 import { useI18n } from "@/components/I18nProvider";
 
 interface Profile {
@@ -82,7 +84,11 @@ export default function AccountPage() {
             </div>
           </div>
 
+          <MemberManager />
+
           <CategoryManager />
+
+          <IncomePurge />
 
           <button
             onClick={logout}
