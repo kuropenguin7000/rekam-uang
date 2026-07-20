@@ -8,6 +8,7 @@ import type { Transaction } from "@/lib/types";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { DatePicker } from "./DatePicker";
+import { Modal } from "./Modal";
 
 interface Props {
   transaction: Transaction;
@@ -22,6 +23,7 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
   const [category, setCategory] = useState<string>(transaction.category);
   const [member, setMember] = useState<string>(transaction.member);
   const [merchant, setMerchant] = useState(transaction.merchant);
+  const [note, setNote] = useState(transaction.note);
   const [date, setDate] = useState(transaction.date);
   const [saving, setSaving] = useState(false);
 
@@ -34,6 +36,7 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
       category,
       member,
       merchant,
+      note,
       date,
     });
     setSaving(false);
@@ -41,16 +44,11 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="animate-pop w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-4 text-base font-semibold">{t("edit.title")}</h3>
-        <div className="space-y-3">
+    <Modal onClose={onClose} labelledBy="edit-tx-title">
+      <h3 id="edit-tx-title" className="mb-4 text-base font-semibold">
+        {t("edit.title")}
+      </h3>
+      <div className="space-y-3">
           <Field label={t("receipt.amount")}>
             <input
               type="text"
@@ -99,6 +97,7 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
           <Field label={t("receipt.merchant")}>
             <input
               value={merchant}
+              maxLength={80}
               onChange={(e) => setMerchant(e.target.value)}
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
             />
@@ -106,24 +105,31 @@ export function EditTransactionModal({ transaction, onClose }: Props) {
           <Field label={t("receipt.date")}>
             <DatePicker value={date} onChange={setDate} max={todayISO()} />
           </Field>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-muted"
-          >
-            {t("receipt.cancel")}
-          </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {saving ? t("edit.saving") : t("edit.save")}
-          </button>
-        </div>
+          <Field label={t("add.note")}>
+            <input
+              value={note}
+              maxLength={280}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
+            />
+          </Field>
       </div>
-    </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-muted"
+        >
+          {t("receipt.cancel")}
+        </button>
+        <button
+          onClick={save}
+          disabled={saving}
+          className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+        >
+          {saving ? t("edit.saving") : t("edit.save")}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

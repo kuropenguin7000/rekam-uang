@@ -33,6 +33,7 @@ const id = {
   "dash.month": "Bulan ini",
   "dash.all": "Semua",
   "dash.custom": "Periode",
+  "dash.rangeDates": "{from} – {to} · {days} hari",
   "dash.memberFilter": "Anggota",
   "dash.memberAll": "Semua",
   "dash.expenseOf": "Pengeluaran {name}",
@@ -60,6 +61,8 @@ const id = {
   "dash.usagePeriod": "Pemakaian anggaran periode",
   "dash.budgetBasis":
     "Batas = anggaran bulanan {budget} disesuaikan untuk {days} hari.",
+  "dash.budgetBasisMonth":
+    "Batas = anggaran bulanan penuh {budget} untuk bulan berjalan ({days} hari).",
   "dash.over": "Melebihi anggaran sebesar {amount}.",
   "dash.remaining": "Sisa {amount} ({pct}% tersisa).",
   "dash.byCategory": "Per kategori",
@@ -213,6 +216,7 @@ const en: Dict = {
   "dash.month": "This month",
   "dash.all": "All time",
   "dash.custom": "Period",
+  "dash.rangeDates": "{from} – {to} · {days} days",
   "dash.memberFilter": "Member",
   "dash.memberAll": "Everyone",
   "dash.expenseOf": "{name}'s spending",
@@ -240,6 +244,8 @@ const en: Dict = {
   "dash.usagePeriod": "Period budget usage",
   "dash.budgetBasis":
     "Limit = your monthly budget {budget} scaled to {days} days.",
+  "dash.budgetBasisMonth":
+    "Limit = your full monthly budget {budget} for this calendar month ({days} days).",
   "dash.over": "Over budget by {amount}.",
   "dash.remaining": "{amount} left ({pct}% remaining).",
   "dash.byCategory": "By category",

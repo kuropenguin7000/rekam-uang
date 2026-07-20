@@ -54,6 +54,44 @@ export function daysAgoISO(n: number): string {
   return toISO(new Date(Date.now() - n * DAY_MS));
 }
 
+// ---------------------------------------------------------------------------
+// Calendar period boundaries
+//
+// "This week" and "this month" mean real calendar periods, not rolling windows:
+// the week runs Monday→Sunday (Indonesian convention — getDay() is 0 for
+// Sunday, so shifting by 6 makes Monday index 0), and the month runs from the
+// 1st to the last day.
+// ---------------------------------------------------------------------------
+
+function parseISO(iso: string): Date {
+  return new Date(iso + "T00:00:00");
+}
+
+/** Monday of the week containing `iso`. */
+export function startOfWeekISO(iso: string = todayISO()): string {
+  const d = parseISO(iso);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return toISO(d);
+}
+
+/** Sunday of the week containing `iso`. */
+export function endOfWeekISO(iso: string = todayISO()): string {
+  const d = parseISO(startOfWeekISO(iso));
+  d.setDate(d.getDate() + 6);
+  return toISO(d);
+}
+
+export function startOfMonthISO(iso: string = todayISO()): string {
+  const d = parseISO(iso);
+  return toISO(new Date(d.getFullYear(), d.getMonth(), 1));
+}
+
+/** Day 0 of the next month is the last day of this one (handles leap years). */
+export function endOfMonthISO(iso: string = todayISO()): string {
+  const d = parseISO(iso);
+  return toISO(new Date(d.getFullYear(), d.getMonth() + 1, 0));
+}
+
 /** Inclusive list of ISO dates between two dates (oldest first). */
 export function dateRange(startISO: string, endISO: string): string[] {
   const out: string[] = [];

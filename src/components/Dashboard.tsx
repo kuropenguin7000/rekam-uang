@@ -8,6 +8,7 @@ import {
   dayCount,
   filterBetween,
   filterByRange,
+  rangeBounds,
   total,
 } from "@/lib/aggregate";
 import {
@@ -68,12 +69,12 @@ export function Dashboard() {
 
   const isCustom = range === "custom";
 
-  // The date window the export should cover, derived from the active filter.
+  // The window the active filter covers. Shared by the export, the budget
+  // proration and the dates shown under the filter bar — all from rangeBounds,
+  // the same helper filterByRange uses, so the label always matches the data.
   const exportRange = useMemo<{ from?: string; to?: string }>(() => {
     if (isCustom) return { from: start, to: end };
-    if (range === "week") return { from: daysAgoISO(6), to: todayISO() };
-    if (range === "month") return { from: daysAgoISO(29), to: todayISO() };
-    return {}; // all time
+    return rangeBounds(range as Range) ?? {}; // {} = all time
   }, [range, isCustom, start, end]);
 
   const dateFiltered = useMemo(
@@ -110,18 +111,21 @@ export function Dashboard() {
     [expenses, range, isCustom, start, end]
   );
 
-  // Number of days the active filter covers. The budget shown for a range is
-  // the monthly budget prorated to this many days (monthly ÷ 30 × days), so the
-  // limit scales the same way no matter how you slice the data. These day counts
-  // match the data windows in filterByRange/filterBetween. "All time" = no limit.
-  const rangeDays = isCustom
-    ? dayCount(start, end)
-    : range === "week"
-      ? 7
-      : range === "month"
-        ? 30
-        : null;
-  const budgetForRange = rangeDays ? (budget * rangeDays) / 30 : 0;
+  // Days the active filter covers, straight from the same bounds. "All time"
+  // has no limit.
+  const rangeDays =
+    exportRange.from && exportRange.to
+      ? dayCount(exportRange.from, exportRange.to)
+      : null;
+  // "This month" *is* the budget period, so it gets the full monthly budget
+  // rather than a proration (a 31-day month would otherwise read as 103%).
+  // Shorter windows get the monthly budget scaled to their length.
+  const budgetForRange =
+    range === "month" && !isCustom
+      ? budget
+      : rangeDays
+        ? (budget * rangeDays) / 30
+        : 0;
   const pct = budgetForRange > 0 ? (spent / budgetForRange) * 100 : 0;
   const over = budgetForRange > 0 && spent > budgetForRange;
   // 0 = auto (monthly / 30); a positive value is an explicit daily budget.
@@ -158,7 +162,7 @@ export function Dashboard() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">{t("dash.title")}</h2>
         <div className="flex flex-wrap items-center gap-2">
-        <div className="inline-flex flex-wrap rounded-xl border border-border bg-surface p-1">
+        <div className="panel inline-flex flex-wrap rounded-xl p-1">
           {RANGES.map((r) => (
             <button
               key={r.id}
@@ -187,8 +191,20 @@ export function Dashboard() {
         </div>
       </div>
 
+      {/* Spell out the window the preset actually covers — "Minggu ini" alone
+          doesn't say whether it means the last 7 days or the calendar week. */}
+      {exportRange.from && exportRange.to && (
+        <p key={`${exportRange.from}-${exportRange.to}`} className="animate-fade -mt-2 text-xs text-muted">
+          {t("dash.rangeDates", {
+            from: formatDate(exportRange.from),
+            to: formatDate(exportRange.to),
+            days: rangeDays ?? 0,
+          })}
+        </p>
+      )}
+
       {visibleMembers.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5 rounded-2xl border border-border bg-surface p-2.5 shadow-sm">
+        <div className="panel flex flex-wrap items-center gap-1.5 rounded-2xl p-2.5 shadow-sm">
           <span className="mr-1 text-xs font-medium text-muted">
             {t("dash.memberFilter")}
           </span>
@@ -220,7 +236,7 @@ export function Dashboard() {
       )}
 
       {isCustom && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3 shadow-sm">
+        <div className="panel flex flex-wrap items-center gap-3 rounded-2xl p-3 shadow-sm">
           <span className="text-sm font-medium text-muted">{t("dash.pickPeriod")}</span>
           <div className="flex items-center gap-2 text-sm">
             <span className="text-muted">{t("dash.from")}</span>
@@ -247,7 +263,7 @@ export function Dashboard() {
       </div>
 
       {/* Monthly budget — editable from any view. */}
-      <div className="flex items-center justify-between rounded-2xl border border-border bg-surface px-4 py-3 shadow-sm">
+      <div className="panel flex items-center justify-between rounded-2xl px-4 py-3 shadow-sm">
         <span className="text-sm text-muted">{t("dash.monthlyBudget")}</span>
         {editingBudget ? (
           <div className="flex items-center gap-2">
@@ -285,7 +301,7 @@ export function Dashboard() {
       {/* Budgets are set for the whole household — comparing one member's
           spending against them would overstate how much is left. */}
       {budgetForRange > 0 && !activeMember && (
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+        <div className="panel rounded-2xl p-4 shadow-sm">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium">
               {isCustom
@@ -299,10 +315,12 @@ export function Dashboard() {
             </span>
           </div>
           <p className="mb-2 text-xs text-muted">
-            {t("dash.budgetBasis", {
-              budget: formatCurrency(budget),
-              days: rangeDays ?? 0,
-            })}
+            {t(
+              range === "month" && !isCustom
+                ? "dash.budgetBasisMonth"
+                : "dash.budgetBasis",
+              { budget: formatCurrency(budget), days: rangeDays ?? 0 }
+            )}
           </p>
           <div className="h-3 w-full overflow-hidden rounded-full bg-surface-muted">
             <div
@@ -332,7 +350,7 @@ export function Dashboard() {
         <Card title={t("dash.byCategory")}>
           <CategoryPie data={categories} />
         </Card>
-        <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+        <div className="panel rounded-2xl p-4 shadow-sm">
           <div className="mb-3 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-foreground">
               {t("dash.dailyRate")}
@@ -380,14 +398,16 @@ export function Dashboard() {
         ) : (
           <>
           <ul>
-            {pageItems.map((tx) => {
+            {pageItems.map((tx, i) => {
               const cat = categoryMeta(tx.category);
               const catLabel = categoryDisplayName(cat, t);
               const mem = memberMeta(tx.member);
               return (
                 <li
                   key={tx.id}
-                  className="group flex items-center gap-3 border-t border-border py-2.5 first:border-t-0"
+                  /* Capped so a full page still finishes settling quickly. */
+                  style={{ animationDelay: `${Math.min(i, 9) * 35}ms` }}
+                  className="animate-row group flex items-center gap-3 border-t border-border py-2.5 first:border-t-0"
                 >
                   <span
                     className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-base"
@@ -545,11 +565,10 @@ function Stat({
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+    <div className="panel lift animate-rise rounded-2xl p-4 shadow-sm">
       <span className="text-sm text-muted">{label}</span>
-      <p
-        className={`mt-1 text-2xl font-bold ${accent ? "text-primary" : ""}`}
-      >
+      {/* The headline figure picks up the backdrop's gradient. */}
+      <p className={`mt-1 text-2xl font-bold ${accent ? "grad-text" : ""}`}>
         {value}
       </p>
     </div>
@@ -564,7 +583,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4 shadow-sm">
+    <div className="panel lift rounded-2xl p-4 shadow-sm">
       <h3 className="mb-3 text-sm font-semibold text-foreground">{title}</h3>
       {children}
     </div>

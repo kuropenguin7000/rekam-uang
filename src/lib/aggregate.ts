@@ -1,14 +1,36 @@
-import { dateRange, daysAgoISO, formatDayMonth, todayISO } from "./format";
+import {
+  dateRange,
+  endOfMonthISO,
+  endOfWeekISO,
+  formatDayMonth,
+  startOfMonthISO,
+  startOfWeekISO,
+  todayISO,
+} from "./format";
 import type { Range, Transaction } from "./types";
+
+/**
+ * Inclusive calendar bounds for a preset range; null for "all time".
+ *
+ * The single source of truth for what a preset covers — the filter, the chart,
+ * the export window and the dates shown in the UI all derive from this, so they
+ * cannot drift apart.
+ */
+export function rangeBounds(range: Range): { from: string; to: string } | null {
+  if (range === "all") return null;
+  if (range === "week") return { from: startOfWeekISO(), to: endOfWeekISO() };
+  return { from: startOfMonthISO(), to: endOfMonthISO() };
+}
 
 export function filterByRange(
   transactions: Transaction[],
   range: Range
 ): Transaction[] {
-  if (range === "all") return transactions;
-  const days = range === "week" ? 7 : 30;
-  const cutoff = daysAgoISO(days - 1);
-  return transactions.filter((t) => t.date >= cutoff);
+  const bounds = rangeBounds(range);
+  if (!bounds) return transactions;
+  return transactions.filter(
+    (t) => t.date >= bounds.from && t.date <= bounds.to
+  );
 }
 
 export interface CategorySlice {
@@ -46,17 +68,23 @@ export function dailySeries(
   transactions: Transaction[],
   range: Range
 ): DayPoint[] {
-  const days = range === "week" ? 7 : 30;
+  const bounds = rangeBounds(range);
   let startISO: string;
-  const endISO = todayISO();
-  if (range === "all") {
+  // The period may still be running (it's the 3rd of a 31-day month), and
+  // charting a fortnight of guaranteed-empty future bars just squeezes the
+  // real ones. Totals and filtering still cover the full period — only the
+  // chart's axis stops at today.
+  const today = todayISO();
+  let endISO = today;
+  if (!bounds) {
     if (transactions.length === 0) return [];
     startISO = transactions.reduce(
       (min, t) => (t.date < min ? t.date : min),
       transactions[0].date
     );
   } else {
-    startISO = daysAgoISO(days - 1);
+    startISO = bounds.from;
+    endISO = bounds.to < today ? bounds.to : today;
   }
 
   const buckets = new Map<string, number>();

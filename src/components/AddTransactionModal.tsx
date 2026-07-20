@@ -8,6 +8,7 @@ import { DEFAULT_MEMBER } from "@/lib/members";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { DatePicker } from "./DatePicker";
+import { Modal } from "./Modal";
 
 interface Props {
   onClose: () => void;
@@ -48,16 +49,11 @@ export function AddTransactionModal({ onClose }: Props) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-      onClick={onClose}
-    >
-      <div
-        className="animate-pop w-full max-w-sm rounded-2xl border border-border bg-surface p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h3 className="mb-4 text-base font-semibold">{t("add.title")}</h3>
-        <div className="space-y-3">
+    <Modal onClose={onClose} labelledBy="add-tx-title">
+      <h3 id="add-tx-title" className="mb-4 text-base font-semibold">
+        {t("add.title")}
+      </h3>
+      <div className="space-y-3">
           <Field label={t("receipt.amount")}>
             <input
               type="text"
@@ -124,24 +120,23 @@ export function AddTransactionModal({ onClose }: Props) {
               className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
             />
           </Field>
-        </div>
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-muted"
-          >
-            {t("receipt.cancel")}
-          </button>
-          <button
-            onClick={save}
-            disabled={saving || !amount}
-            className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
-          >
-            {saving ? t("edit.saving") : t("edit.save")}
-          </button>
-        </div>
       </div>
-    </div>
+      <div className="mt-5 flex items-center justify-end gap-2">
+        <button
+          onClick={onClose}
+          className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted hover:bg-surface-muted"
+        >
+          {t("receipt.cancel")}
+        </button>
+        <button
+          onClick={save}
+          disabled={saving || !amount}
+          className="rounded-lg bg-primary px-4 py-1.5 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60"
+        >
+          {saving ? t("edit.saving") : t("edit.save")}
+        </button>
+      </div>
+    </Modal>
   );
 }
 

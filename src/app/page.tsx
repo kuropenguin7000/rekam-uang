@@ -42,7 +42,9 @@ function Shell() {
         <div className="flex items-center gap-2.5">
           <BrandMark className="h-9 w-9" />
           <div>
-            <h1 className="text-lg font-bold leading-tight">Rekam Uang</h1>
+            <h1 className="grad-text text-lg font-bold leading-tight">
+              Rekam Uang
+            </h1>
             <p className="hidden text-xs text-muted sm:block">{t("app.tagline")}</p>
           </div>
         </div>
@@ -63,7 +65,7 @@ function Shell() {
           <button
             onClick={() => setAdding(true)}
             aria-label={t("add.title")}
-            className="hidden items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-sm font-semibold text-white hover:opacity-90 sm:inline-flex"
+            className="grad-primary hidden items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold shadow-sm transition sm:inline-flex"
           >
             <PlusIcon className="h-4 w-4" />
             {t("add.button")}
@@ -87,38 +89,84 @@ function Shell() {
           <div className="grid h-64 place-items-center text-sm text-muted">
             {t("common.loading")}
           </div>
-        ) : tab === "dashboard" ? (
-          <Dashboard />
         ) : (
-          <InsightsPanel />
+          /*
+            Keyed on the tab so switching remounts and replays the entrance.
+            Fades only — deliberately no transform. A transform here (even the
+            translateY(0) an animation leaves behind) makes this element the
+            containing block for every `position: fixed` descendant, which put
+            the transaction modals and the DatePicker overlay off-screen. The
+            motion lives on the cards and rows inside instead.
+          */
+          <div key={tab} className="animate-fade">
+            {tab === "dashboard" ? <Dashboard /> : <InsightsPanel />}
+          </div>
         )}
       </main>
 
-      <button
-        onClick={() => setAdding(true)}
-        aria-label={t("add.title")}
-        className="fixed bottom-20 right-4 z-20 grid h-14 w-14 place-items-center rounded-full bg-primary text-white shadow-lg hover:opacity-90 sm:hidden"
-      >
-        <PlusIcon className="h-6 w-6" />
-      </button>
+      {/*
+        The add button lives *in* the bottom bar rather than floating over the
+        list. As a FAB it sat in the same bottom-right corner as each row's
+        edit/delete buttons, so whichever row scrolled under it became
+        unclickable — nudging the FAB only moves which row it covers.
+      */}
+      <nav className="fixed inset-x-0 bottom-0 z-10 flex items-stretch border-t border-border bg-surface/95 backdrop-blur sm:hidden">
+        <TabBarButton
+          active={tab === "dashboard"}
+          onClick={() => setTab("dashboard")}
+          icon={<DashboardIcon />}
+          label={t("nav.dashboard")}
+        />
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-border bg-surface/95 backdrop-blur sm:hidden">
-        {TABS.map((tab2) => (
+        <div className="flex w-20 shrink-0 justify-center">
           <button
-            key={tab2.id}
-            onClick={() => setTab(tab2.id)}
-            className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition ${
-              tab === tab2.id ? "text-primary" : "text-muted"
-            }`}
+            onClick={() => setAdding(true)}
+            aria-label={t("add.title")}
+            className="grad-primary -mt-5 grid h-14 w-14 place-items-center rounded-full shadow-lg ring-4 ring-background transition active:scale-90"
           >
-            {tab2.icon}
-            {t(tab2.labelKey)}
+            <PlusIcon className="h-6 w-6" />
           </button>
-        ))}
+        </div>
+
+        <TabBarButton
+          active={tab === "insights"}
+          onClick={() => setTab("insights")}
+          icon={<InsightIcon />}
+          label={t("nav.insights")}
+        />
       </nav>
 
       {adding && <AddTransactionModal onClose={() => setAdding(false)} />}
     </div>
+  );
+}
+
+/** Bottom-bar tab (mobile). */
+function TabBarButton({
+  active,
+  onClick,
+  icon,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${
+        active ? "text-primary" : "text-muted"
+      }`}
+    >
+      <span
+        className={`transition-transform duration-200 ${active ? "scale-110" : ""}`}
+      >
+        {icon}
+      </span>
+      {label}
+    </button>
   );
 }
 

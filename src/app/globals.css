@@ -57,8 +57,15 @@ body {
   height: 100%;
 }
 
-body {
+/* The base colour lives on <html> so the fixed backdrop (z-index -1, a child
+   of <body>) paints above it instead of being hidden behind an opaque body
+   background. Body stays transparent. */
+html {
   background: var(--background);
+}
+
+body {
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
@@ -87,6 +94,324 @@ body {
 }
 .animate-pop {
   animation: pop-in 0.22s ease-out both;
+}
+
+/* ===========================================================================
+   Fluid gradient backdrop
+
+   Vector-illustration look: large organic blobs with multi-stop gradients that
+   drift and bleed into each other. Built from CSS gradients rather than WebGL —
+   the target artwork is flat vector art with gradient fills, which gradients
+   render natively, so a 3D renderer would add hundreds of KB to a phone app to
+   imitate something the compositor already does.
+
+   Every animation is transform-only (translate/rotate/scale). The blobs keep a
+   fixed asymmetric border-radius and *rotate*, which reads as organic morphing
+   without the per-frame repaint that animating border-radius would cost.
+   =========================================================================== */
+:root {
+  /* Light: vivid on a near-white page, so the shapes stay legible but never
+     fight the content sitting on top of them. */
+  --bd-blend: normal;
+  --bd-alpha: 0.42;
+  --bd-glow-alpha: 0.5;
+  --bd-1: linear-gradient(135deg, #ff3d9a 0%, #ff8a3d 100%);
+  --bd-2: linear-gradient(135deg, #7c3aed 0%, #22d3ee 100%);
+  --bd-3: linear-gradient(135deg, #3b82f6 0%, #a855f7 100%);
+  --bd-4: linear-gradient(135deg, #06b6d4 0%, #6366f1 100%);
+  --bd-glow-a: #c026d3;
+  --bd-glow-b: #0ea5e9;
+  --bd-veil: rgb(246 247 251 / 0.55);
+}
+
+:root.dark {
+  /* Dark: `screen` makes overlapping blobs add light instead of muddying, which
+     is what produces the luminous seams where colours cross. */
+  --bd-blend: screen;
+  --bd-alpha: 0.55;
+  --bd-glow-alpha: 0.45;
+  --bd-1: linear-gradient(135deg, #f0338d 0%, #ff7a2f 100%);
+  --bd-2: linear-gradient(135deg, #8b5cf6 0%, #22d3ee 100%);
+  --bd-3: linear-gradient(135deg, #2563eb 0%, #c026d3 100%);
+  --bd-4: linear-gradient(135deg, #0891b2 0%, #4f46e5 100%);
+  --bd-glow-a: #a21caf;
+  --bd-glow-b: #0284c7;
+  --bd-veil: rgb(11 16 32 / 0.45);
+}
+
+.bd {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  /* Perspective still buys depth: blobs sit at different Z, so the shared
+     vanishing point makes near ones sweep further than far ones. */
+  perspective: 1000px;
+  perspective-origin: 50% 45%;
+}
+
+.bd-stage {
+  position: absolute;
+  inset: -25%;
+  transform-style: preserve-3d;
+  animation: bd-stage 48s ease-in-out infinite alternate;
+}
+
+.bd-blob {
+  position: absolute;
+  opacity: var(--bd-alpha);
+  mix-blend-mode: var(--bd-blend);
+  will-change: transform;
+  transition:
+    opacity 0.5s ease,
+    background 0.5s ease;
+}
+
+/* Soft radial halos behind the solid blobs. These carry the diffuse colour
+   wash; the gradient blobs above them supply the defined shapes. */
+.bd-glow {
+  position: absolute;
+  border-radius: 9999px;
+  opacity: var(--bd-glow-alpha);
+  mix-blend-mode: var(--bd-blend);
+  will-change: transform;
+  transition: opacity 0.5s ease;
+}
+
+.bd-glow-1 {
+  top: -10%;
+  left: -8%;
+  width: 78vmin;
+  height: 78vmin;
+  background: radial-gradient(circle, var(--bd-glow-a) 0%, transparent 68%);
+  transform: translateZ(-420px);
+  animation: bd-drift-a 40s ease-in-out infinite alternate;
+}
+
+.bd-glow-2 {
+  bottom: -18%;
+  right: -12%;
+  width: 88vmin;
+  height: 88vmin;
+  background: radial-gradient(circle, var(--bd-glow-b) 0%, transparent 68%);
+  transform: translateZ(-500px);
+  animation: bd-drift-b 52s ease-in-out infinite alternate;
+}
+
+/* The asymmetric radii are what make these read as hand-drawn blobs rather
+   than ellipses. Rotating them animates the silhouette for free. */
+.bd-blob-1 {
+  top: 6%;
+  left: 4%;
+  width: 46vmin;
+  height: 44vmin;
+  background: var(--bd-1);
+  border-radius: 62% 38% 46% 54% / 54% 44% 56% 46%;
+  transform: translateZ(-80px);
+  animation: bd-spin-a 44s linear infinite;
+}
+
+.bd-blob-2 {
+  top: 38%;
+  right: -6%;
+  width: 52vmin;
+  height: 50vmin;
+  background: var(--bd-2);
+  border-radius: 41% 59% 63% 37% / 47% 62% 38% 53%;
+  transform: translateZ(-220px);
+  animation: bd-spin-b 60s linear infinite;
+}
+
+.bd-blob-3 {
+  bottom: 2%;
+  left: 22%;
+  width: 40vmin;
+  height: 42vmin;
+  background: var(--bd-3);
+  border-radius: 55% 45% 38% 62% / 42% 58% 42% 58%;
+  transform: translateZ(-340px);
+  animation: bd-spin-a 72s linear infinite reverse;
+}
+
+.bd-blob-4 {
+  top: 20%;
+  left: 42%;
+  width: 30vmin;
+  height: 32vmin;
+  background: var(--bd-4);
+  border-radius: 48% 52% 57% 43% / 60% 40% 60% 40%;
+  transform: translateZ(-160px);
+  animation: bd-spin-b 52s linear infinite;
+}
+
+/* A veil in the page colour sits over the artwork so text keeps its contrast
+   no matter which blob drifts underneath. Without it the colours are pretty
+   but the dashboard becomes hard to read. */
+.bd-veil {
+  position: absolute;
+  inset: 0;
+  background: var(--bd-veil);
+  transition: background 0.5s ease;
+}
+
+@keyframes bd-stage {
+  from {
+    transform: rotateX(2deg) rotateY(-4deg);
+  }
+  to {
+    transform: rotateX(-2deg) rotateY(4deg);
+  }
+}
+
+@keyframes bd-drift-a {
+  from {
+    transform: translateZ(-420px) translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translateZ(-420px) translate3d(10vw, 8vh, 0) scale(1.25);
+  }
+}
+
+@keyframes bd-drift-b {
+  from {
+    transform: translateZ(-500px) translate3d(0, 0, 0) scale(1.15);
+  }
+  to {
+    transform: translateZ(-500px) translate3d(-9vw, -7vh, 0) scale(0.9);
+  }
+}
+
+/* Rotation plus a gentle breathing scale — the silhouette never repeats
+   exactly, so the motion reads as fluid rather than as a spinning object. */
+@keyframes bd-spin-a {
+  0% {
+    transform: translateZ(-80px) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translateZ(-80px) rotate(180deg) scale(1.14);
+  }
+  100% {
+    transform: translateZ(-80px) rotate(360deg) scale(1);
+  }
+}
+
+@keyframes bd-spin-b {
+  0% {
+    transform: translateZ(-220px) rotate(0deg) scale(1.08);
+  }
+  50% {
+    transform: translateZ(-220px) rotate(-180deg) scale(0.92);
+  }
+  100% {
+    transform: translateZ(-220px) rotate(-360deg) scale(1.08);
+  }
+}
+
+/* ===========================================================================
+   Gradient surfaces — ties the UI into the backdrop
+   =========================================================================== */
+
+/* Gradient-filled text, for the wordmark and headline figures. */
+.grad-text {
+  background: linear-gradient(120deg, #ff3d9a 0%, #7c3aed 55%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Primary action fill. Slightly deeper on hover rather than a flat opacity
+   drop, so the gradient stays readable. */
+.grad-primary {
+  background-image: linear-gradient(135deg, #6d28d9 0%, #4f46e5 50%, #0ea5e9 100%);
+  color: #fff;
+}
+.grad-primary:hover {
+  background-image: linear-gradient(135deg, #5b21b6 0%, #4338ca 50%, #0284c7 100%);
+}
+
+/* Cards let the artwork through and pick up a faint tint at one corner, so the
+   panels feel lit by the backdrop instead of pasted on top of it. */
+.panel {
+  background-color: color-mix(in srgb, var(--surface) 82%, transparent);
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary) 7%, transparent) 0%,
+    transparent 55%
+  );
+  /* Declare the standard property ONLY. Tailwind v4 runs Lightning CSS, which
+     adds vendor prefixes per browser target — hand-writing -webkit- alongside
+     it made it collapse the pair down to the prefixed one, which would have
+     dropped the blur entirely in Firefox. */
+  backdrop-filter: blur(12px) saturate(1.3);
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+/* ---------------------------------------------------------------------------
+   Entrance / transition helpers
+   --------------------------------------------------------------------------- */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.animate-fade {
+  animation: fade-in 0.2s ease-out both;
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-rise {
+  animation: rise-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Rows fade in one after another. The delay is set inline per row so the
+   stagger keeps working past any fixed number of nth-child rules. */
+.animate-row {
+  animation: rise-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Cards lift slightly toward the viewer on hover — ties the flat surfaces to
+   the backdrop without moving layout. */
+.lift {
+  transition:
+    transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.25s ease;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px -12px rgb(0 0 0 / 0.25);
+  }
+}
+
+/* Respect the OS "reduce motion" setting: the artwork still renders in full
+   colour, it just holds still, and entrance animations collapse to their
+   final state. */
+@media (prefers-reduced-motion: reduce) {
+  .bd-stage,
+  .bd-blob,
+  .bd-glow,
+  .animate-pop,
+  .animate-fade,
+  .animate-rise,
+  .animate-row {
+    animation: none !important;
+  }
+  .lift {
+    transition: none;
+  }
 }
 
 @keyframes blink {
