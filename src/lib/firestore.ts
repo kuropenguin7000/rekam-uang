@@ -375,6 +375,12 @@ export async function updateCategory(
       if (l) ov.label = l;
       else delete ov.label;
     }
+    // An empty icon clears the override, restoring the built-in default.
+    if (typeof patch.icon === "string") {
+      const ic = patch.icon.trim().slice(0, 8);
+      if (ic) ov.icon = ic;
+      else delete ov.icon;
+    }
     if (typeof patch.hidden === "boolean") ov.hidden = patch.hidden;
     if (Object.keys(ov).length) config.overrides[id] = ov;
     else delete config.overrides[id];
@@ -447,6 +453,12 @@ export async function updateMember(
       const l = patch.label.trim().slice(0, 40);
       if (l) ov.label = l;
       else delete ov.label;
+    }
+    // An empty icon clears the override, restoring the built-in default.
+    if (typeof patch.icon === "string") {
+      const ic = patch.icon.trim().slice(0, 8);
+      if (ic) ov.icon = ic;
+      else delete ov.icon;
     }
     if (typeof patch.hidden === "boolean") ov.hidden = patch.hidden;
     if (Object.keys(ov).length) config.overrides[id] = ov;

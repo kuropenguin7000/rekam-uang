@@ -11,8 +11,8 @@ const ITEMS: { id: HomePeriod; key: "period.week" | "period.month" | "period.all
 
 /**
  * Minggu ini / Bulan ini / Semua — the segmented period control that sits above
- * the hero on both Beranda variants. The active segment takes the indigo
- * gradient from the mockup; the others are plain cards.
+ * the hero on both Beranda variants. The active segment takes the same full
+ * gradient as the hero card and the save button; the others are plain cards.
  */
 export function PeriodTabs({
   value,
@@ -31,7 +31,7 @@ export function PeriodTabs({
             key={item.id}
             onClick={() => onChange(item.id)}
             className={`flex-1 whitespace-nowrap rounded-[11px] py-2 text-center text-[12.5px] font-semibold transition ${
-              active ? "grad-chip" : "card text-muted hover:text-foreground"
+              active ? "grad-primary" : "card text-muted hover:text-foreground"
             }`}
           >
             {t(item.key)}

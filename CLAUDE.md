@@ -67,8 +67,9 @@ npm run dev                 # http://localhost:3000
 ## Data model ([src/lib/firestore.ts](src/lib/firestore.ts) — all data access, browser SDK)
 - `users/{uid}`: email, name, image, budget (default 5,000,000), dailyBudget
   (0 = auto = budget/30), **categoryBudgets** (native map {cat: amount}),
-  **categoriesConfig** (native map: custom categories + built-in rename/hide
-  overrides), **membersConfig** (same shape, for family members), createdAt.
+  **categoriesConfig** (native map: custom categories + built-in
+  rename/icon/hide overrides), **membersConfig** (same shape, for family
+  members), createdAt.
 - `users/{uid}/transactions/{autoId}`: amount, category (string id — built-in
   or custom `c_*`), **member** (built-in id or custom `m_*`; "" = untagged),
   type (always "expense" — see below), merchant, note,
@@ -107,7 +108,12 @@ npm run dev                 # http://localhost:3000
   (25/50/100/250rb), category **tiles** (6 then "•••"), member pills, merchant,
   note, DatePicker. Slides up from the bottom edge below `sm:`; the same content
   centres as a dialog from `sm:` up, since a sheet is a phone idiom. Portalled
-  to `<body>` like the other dialogs.
+  to `<body>` like the other dialogs. **Swipe down to dismiss**: the grip zone
+  (handle + title, `touch-action: none`) always drags, and the body drags too
+  once it is scrolled to the top so the gesture never steals a live scroll.
+  Past 110px a release runs `.sheet-closing`; below it the sheet snaps back.
+  The entrance animation is dropped on first touch (`touched`) — otherwise a
+  snap-back replays it.
 - **Mobile-first inputs** (the owner uses the app daily on a phone):
   [DatePicker.tsx](src/components/DatePicker.tsx) is a button trigger (NO
   free-text typing — no keyboard on mobile) whose calendar renders as a
@@ -144,15 +150,15 @@ npm run dev                 # http://localhost:3000
   [stats.ts](src/lib/stats.ts) — all pure folds over the loaded transactions.
 - **Member labels** ([src/lib/members.ts](src/lib/members.ts)): every expense is
   tagged with a family member (built-ins Ayah/Ibu/Anak/Bersama, renameable +
-  hideable, plus custom `m_*`; managed in
+  **re-iconable** + hideable, plus custom `m_*`; managed in
   [MemberManager.tsx](src/components/MemberManager.tsx) on the Akun tab).
   Member chips scope the transaction list; Statistik shows the split.
 - **Insights**: [InsightsPanel.tsx](src/components/InsightsPanel.tsx) computes
   `generateInsights(transactions, budget, locale)` ([src/lib/insights.ts](src/lib/insights.ts))
   **client-side in a useMemo** — pure rules (spikes, recurring charges, small
   spends, budget benchmark).
-- **Per-category budgets** + **editable categories** (rename/hide built-ins,
-  CRUD custom; delete reassigns to "other") via `effectiveCategories`/
+- **Per-category budgets** + **editable categories** (rename/re-icon/hide
+  built-ins, CRUD custom; delete reassigns to "other") via `effectiveCategories`/
   `resolveCategory`; category logic lives in firestore.ts (addCategory etc.).
 - **Notifications**: bell derives budget alerts from store state
   ([src/lib/notifications.ts](src/lib/notifications.ts)); persistent log in

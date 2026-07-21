@@ -6,7 +6,11 @@ import { effectiveCategories } from "@/lib/categories";
 import { clientAuth } from "@/lib/firebaseClient";
 import * as db from "@/lib/firestore";
 import type { UserCategory } from "@/lib/types";
+import { EmojiField } from "./EmojiField";
 import { useI18n } from "./I18nProvider";
+
+/** Shortcuts only — EmojiField accepts anything the keyboard can type. */
+const ICON_SUGGESTIONS = ["🍽️", "🚗", "🛍️", "🛒", "🎬", "🧾", "💊", "🏷️"];
 
 const COLORS = [
   "#f97316",
@@ -36,7 +40,14 @@ export function CategoryManager() {
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+  const [editIcon, setEditIcon] = useState("");
   const [busy, setBusy] = useState(false);
+
+  function startEdit(c: UserCategory) {
+    setEditLabel(categoryDisplayName(c, t));
+    setEditIcon(c.icon);
+    setEditId(c.id);
+  }
 
   const reload = useCallback(async () => {
     const uid = clientAuth().currentUser?.uid;
@@ -71,7 +82,12 @@ export function CategoryManager() {
   }
 
   async function saveEdit(id: string) {
-    await run((uid) => db.updateCategory(uid, id, { label: editLabel.trim() }));
+    await run((uid) =>
+      db.updateCategory(uid, id, {
+        label: editLabel.trim(),
+        icon: editIcon.trim(),
+      })
+    );
     setEditId(null);
   }
 
@@ -96,20 +112,18 @@ export function CategoryManager() {
 
       {adding && (
         <div className="mb-3 space-y-2 rounded-xl border border-border bg-surface-muted p-3">
-          <div className="flex items-center gap-2">
-            <input
-              value={newIcon}
-              onChange={(e) => setNewIcon(e.target.value.slice(0, 8))}
-              className="w-12 rounded-lg border border-border bg-surface px-2 py-1.5 text-center text-base outline-none"
-            />
-            <input
-              autoFocus
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value.slice(0, 40))}
-              placeholder={t("cat.namePlaceholder")}
-              className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
-            />
-          </div>
+          <input
+            autoFocus
+            value={newLabel}
+            onChange={(e) => setNewLabel(e.target.value.slice(0, 40))}
+            placeholder={t("cat.namePlaceholder")}
+            className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
+          />
+          <EmojiField
+            value={newIcon}
+            onChange={setNewIcon}
+            suggestions={ICON_SUGGESTIONS}
+          />
           <div className="flex flex-wrap items-center gap-2">
             {COLORS.map((c) => (
               <button
@@ -134,7 +148,7 @@ export function CategoryManager() {
             <button
               onClick={add}
               disabled={busy || !newLabel.trim()}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="grad-primary rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
             >
               {t("cat.save")}
             </button>
@@ -143,23 +157,49 @@ export function CategoryManager() {
       )}
 
       <ul className="divide-y divide-border">
-        {categories.map((c) => (
-          <li key={c.id} className="flex items-center gap-3 py-2.5">
-            <span
-              className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm"
-              style={{ background: c.color + "22" }}
-            >
-              {c.icon}
-            </span>
-            {editId === c.id ? (
-              <input
-                autoFocus
-                value={editLabel}
-                onChange={(e) => setEditLabel(e.target.value.slice(0, 40))}
-                onKeyDown={(e) => e.key === "Enter" && saveEdit(c.id)}
-                className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
-              />
-            ) : (
+        {categories.map((c) =>
+          editId === c.id ? (
+            /* Editing takes the whole row: name and icon side by side needs
+               more width than the list row leaves. */
+            <li key={c.id} className="py-2.5">
+              <div className="space-y-2 rounded-xl border border-border bg-surface-muted p-3">
+                <input
+                  autoFocus
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value.slice(0, 40))}
+                  onKeyDown={(e) => e.key === "Enter" && saveEdit(c.id)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
+                />
+                <EmojiField
+                  value={editIcon}
+                  onChange={setEditIcon}
+                  suggestions={ICON_SUGGESTIONS}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface"
+                  >
+                    {t("cat.cancel")}
+                  </button>
+                  <button
+                    onClick={() => saveEdit(c.id)}
+                    disabled={busy}
+                    className="grad-primary rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                  >
+                    {t("cat.save")}
+                  </button>
+                </div>
+              </div>
+            </li>
+          ) : (
+            <li key={c.id} className="flex items-center gap-3 py-2.5">
+              <span
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm"
+                style={{ background: c.color + "22" }}
+              >
+                {c.icon}
+              </span>
               <span
                 className={`min-w-0 flex-1 truncate text-sm ${
                   c.hidden ? "text-muted line-through" : "font-medium"
@@ -172,52 +212,37 @@ export function CategoryManager() {
                   </span>
                 )}
               </span>
-            )}
-            <div className="flex shrink-0 items-center gap-1">
-              {editId === c.id ? (
+              <div className="flex shrink-0 items-center gap-1">
                 <button
-                  onClick={() => saveEdit(c.id)}
-                  disabled={busy}
-                  className="rounded-md px-2 py-1 text-xs font-semibold text-primary"
+                  onClick={() => startEdit(c)}
+                  aria-label={t("cat.rename")}
+                  className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted hover:text-primary"
                 >
-                  {t("cat.save")}
+                  ✎
                 </button>
-              ) : (
-                <>
+                {c.builtin ? (
                   <button
-                    onClick={() => {
-                      setEditLabel(categoryDisplayName(c, t));
-                      setEditId(c.id);
-                    }}
-                    aria-label={t("cat.rename")}
-                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted hover:text-primary"
+                    onClick={() =>
+                      run((uid) => db.updateCategory(uid, c.id, { hidden: !c.hidden }))
+                    }
+                    aria-label={t("cat.hide")}
+                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
                   >
-                    ✎
+                    {c.hidden ? "🙈" : "👁️"}
                   </button>
-                  {c.builtin ? (
-                    <button
-                      onClick={() =>
-                        run((uid) => db.updateCategory(uid, c.id, { hidden: !c.hidden }))
-                      }
-                      aria-label={t("cat.hide")}
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
-                    >
-                      {c.hidden ? "🙈" : "👁️"}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => remove(c.id, categoryDisplayName(c, t))}
-                      aria-label={t("cat.delete")}
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </li>
-        ))}
+                ) : (
+                  <button
+                    onClick={() => remove(c.id, categoryDisplayName(c, t))}
+                    aria-label={t("cat.delete")}
+                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </li>
+          )
+        )}
       </ul>
     </div>
   );

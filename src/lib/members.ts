@@ -30,7 +30,8 @@ export const DEFAULT_MEMBER: string = "shared";
 /** Per-user member customisation, persisted as a map on the user doc. */
 export interface MembersConfig {
   custom: { id: string; label: string; icon: string }[];
-  overrides: Record<string, { label?: string; hidden?: boolean }>;
+  /** Built-ins can be renamed, re-iconed and hidden — never deleted. */
+  overrides: Record<string, { label?: string; icon?: string; hidden?: boolean }>;
 }
 
 export const EMPTY_MEMBERS_CONFIG: MembersConfig = { custom: [], overrides: {} };
@@ -53,7 +54,7 @@ export function effectiveMembers(
     out.push({
       id: m.id,
       label: ov?.label ?? "",
-      icon: m.icon,
+      icon: ov?.icon || m.icon,
       builtin: true,
       hidden: !!ov?.hidden,
     });
@@ -109,10 +110,12 @@ export function sanitizeMembersConfig(obj: unknown): MembersConfig {
   if (rec.overrides && typeof rec.overrides === "object") {
     for (const [k, v] of Object.entries(rec.overrides as Record<string, unknown>)) {
       if (!(k in MEMBERS) || !v || typeof v !== "object") continue;
-      const vv = v as { label?: unknown; hidden?: unknown };
-      const o: { label?: string; hidden?: boolean } = {};
+      const vv = v as { label?: unknown; icon?: unknown; hidden?: unknown };
+      const o: { label?: string; icon?: string; hidden?: boolean } = {};
       if (typeof vv.label === "string" && vv.label.trim())
         o.label = vv.label.slice(0, 40);
+      if (typeof vv.icon === "string" && vv.icon.trim())
+        o.icon = vv.icon.slice(0, 8);
       if (typeof vv.hidden === "boolean") o.hidden = vv.hidden;
       if (Object.keys(o).length) overrides[k] = o;
     }

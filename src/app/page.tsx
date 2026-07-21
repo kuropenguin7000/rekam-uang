@@ -104,7 +104,7 @@ function Shell() {
 
         <button
           onClick={() => setAdding(true)}
-          className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+          className="grad-primary mt-5 flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition"
         >
           <PlusIcon className="h-4 w-4" />
           {t("add.button")}
@@ -146,7 +146,7 @@ function Shell() {
           <button
             onClick={() => setAdding(true)}
             aria-label={t("add.title")}
-            className="-mt-5 grid h-14 w-14 place-items-center rounded-full bg-primary text-white shadow-lg ring-4 ring-background transition active:scale-90"
+            className="grad-primary -mt-5 grid h-14 w-14 place-items-center rounded-full shadow-lg ring-4 ring-background transition active:scale-90"
           >
             <PlusIcon className="h-6 w-6" />
           </button>

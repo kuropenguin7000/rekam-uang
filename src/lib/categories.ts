@@ -24,7 +24,8 @@ export function categoryColor(id: CategoryId): string {
 /** Per-user category customisation, persisted as JSON on the user. */
 export interface CategoriesConfig {
   custom: { id: string; label: string; icon: string; color: string }[];
-  overrides: Record<string, { label?: string; hidden?: boolean }>;
+  /** Built-ins can be renamed, re-iconed and hidden — never deleted. */
+  overrides: Record<string, { label?: string; icon?: string; hidden?: boolean }>;
 }
 
 export const EMPTY_CATEGORIES_CONFIG: CategoriesConfig = {
@@ -51,7 +52,7 @@ export function effectiveCategories(
     out.push({
       id: c.id,
       label: ov?.label ?? "",
-      icon: c.icon,
+      icon: ov?.icon || c.icon,
       color: c.color,
       builtin: true,
       hidden: !!ov?.hidden,
@@ -107,10 +108,12 @@ export function sanitizeCategoriesConfig(obj: unknown): CategoriesConfig {
       rec.overrides as Record<string, unknown>
     )) {
       if (!(k in CATEGORIES) || !v || typeof v !== "object") continue;
-      const vv = v as { label?: unknown; hidden?: unknown };
-      const o: { label?: string; hidden?: boolean } = {};
+      const vv = v as { label?: unknown; icon?: unknown; hidden?: unknown };
+      const o: { label?: string; icon?: string; hidden?: boolean } = {};
       if (typeof vv.label === "string" && vv.label.trim())
         o.label = vv.label.slice(0, 40);
+      if (typeof vv.icon === "string" && vv.icon.trim())
+        o.icon = vv.icon.slice(0, 8);
       if (typeof vv.hidden === "boolean") o.hidden = vv.hidden;
       if (Object.keys(o).length) overrides[k] = o;
     }

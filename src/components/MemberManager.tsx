@@ -6,8 +6,13 @@ import { effectiveMembers } from "@/lib/members";
 import { clientAuth } from "@/lib/firebaseClient";
 import * as db from "@/lib/firestore";
 import type { UserMember } from "@/lib/types";
+import { EmojiField } from "./EmojiField";
 import { useI18n } from "./I18nProvider";
 
+/**
+ * Shortcuts only. The emoji field takes anything the keyboard can produce —
+ * households are not limited to the faces we happened to list here.
+ */
 const ICONS = ["👨", "👩", "🧒", "👶", "🧑", "👴", "👵", "🏠"];
 
 /**
@@ -24,7 +29,14 @@ export function MemberManager() {
   const [newIcon, setNewIcon] = useState(ICONS[4]);
   const [editId, setEditId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
+  const [editIcon, setEditIcon] = useState("");
   const [busy, setBusy] = useState(false);
+
+  function startEdit(m: UserMember) {
+    setEditLabel(memberDisplayName(m, t));
+    setEditIcon(m.icon);
+    setEditId(m.id);
+  }
 
   const reload = useCallback(async () => {
     const uid = clientAuth().currentUser?.uid;
@@ -56,7 +68,12 @@ export function MemberManager() {
   }
 
   async function saveEdit(id: string) {
-    await run((uid) => db.updateMember(uid, id, { label: editLabel.trim() }));
+    await run((uid) =>
+      db.updateMember(uid, id, {
+        label: editLabel.trim(),
+        icon: editIcon.trim(),
+      })
+    );
     setEditId(null);
   }
 
@@ -89,21 +106,7 @@ export function MemberManager() {
             placeholder={t("mem.namePlaceholder")}
             className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
           />
-          <div className="flex flex-wrap items-center gap-1.5">
-            {ICONS.map((ic) => (
-              <button
-                key={ic}
-                type="button"
-                onClick={() => setNewIcon(ic)}
-                aria-label={ic}
-                className={`grid h-8 w-8 place-items-center rounded-lg border text-base ${
-                  newIcon === ic ? "border-primary bg-surface" : "border-transparent"
-                }`}
-              >
-                {ic}
-              </button>
-            ))}
-          </div>
+          <EmojiField value={newIcon} onChange={setNewIcon} suggestions={ICONS} />
           <div className="flex items-center justify-end gap-2">
             <button
               onClick={() => setAdding(false)}
@@ -114,7 +117,7 @@ export function MemberManager() {
             <button
               onClick={add}
               disabled={busy || !newLabel.trim()}
-              className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="grad-primary rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
             >
               {t("mem.save")}
             </button>
@@ -123,20 +126,45 @@ export function MemberManager() {
       )}
 
       <ul className="divide-y divide-border">
-        {members.map((m) => (
-          <li key={m.id} className="flex items-center gap-3 py-2.5">
-            <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-muted text-sm">
-              {m.icon}
-            </span>
-            {editId === m.id ? (
-              <input
-                autoFocus
-                value={editLabel}
-                onChange={(e) => setEditLabel(e.target.value.slice(0, 40))}
-                onKeyDown={(e) => e.key === "Enter" && saveEdit(m.id)}
-                className="min-w-0 flex-1 rounded-lg border border-border bg-surface px-2 py-1 text-sm outline-none focus:border-primary"
-              />
-            ) : (
+        {members.map((m) =>
+          editId === m.id ? (
+            /* Editing takes the whole row — name and emoji need the width. */
+            <li key={m.id} className="py-2.5">
+              <div className="space-y-2 rounded-xl border border-border bg-surface-muted p-3">
+                <input
+                  autoFocus
+                  value={editLabel}
+                  onChange={(e) => setEditLabel(e.target.value.slice(0, 40))}
+                  onKeyDown={(e) => e.key === "Enter" && saveEdit(m.id)}
+                  className="w-full rounded-lg border border-border bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary"
+                />
+                <EmojiField
+                  value={editIcon}
+                  onChange={setEditIcon}
+                  suggestions={ICONS}
+                />
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    onClick={() => setEditId(null)}
+                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted hover:bg-surface"
+                  >
+                    {t("mem.cancel")}
+                  </button>
+                  <button
+                    onClick={() => saveEdit(m.id)}
+                    disabled={busy}
+                    className="grad-primary rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                  >
+                    {t("mem.save")}
+                  </button>
+                </div>
+              </div>
+            </li>
+          ) : (
+            <li key={m.id} className="flex items-center gap-3 py-2.5">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-surface-muted text-sm">
+                {m.icon}
+              </span>
               <span
                 className={`min-w-0 flex-1 truncate text-sm ${
                   m.hidden ? "text-muted line-through" : "font-medium"
@@ -149,52 +177,37 @@ export function MemberManager() {
                   </span>
                 )}
               </span>
-            )}
-            <div className="flex shrink-0 items-center gap-1">
-              {editId === m.id ? (
+              <div className="flex shrink-0 items-center gap-1">
                 <button
-                  onClick={() => saveEdit(m.id)}
-                  disabled={busy}
-                  className="rounded-md px-2 py-1 text-xs font-semibold text-primary"
+                  onClick={() => startEdit(m)}
+                  aria-label={t("mem.rename")}
+                  className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted hover:text-primary"
                 >
-                  {t("mem.save")}
+                  ✎
                 </button>
-              ) : (
-                <>
+                {m.builtin ? (
                   <button
-                    onClick={() => {
-                      setEditLabel(memberDisplayName(m, t));
-                      setEditId(m.id);
-                    }}
-                    aria-label={t("mem.rename")}
-                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted hover:text-primary"
+                    onClick={() =>
+                      run((uid) => db.updateMember(uid, m.id, { hidden: !m.hidden }))
+                    }
+                    aria-label={t("mem.hide")}
+                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
                   >
-                    ✎
+                    {m.hidden ? "🙈" : "👁️"}
                   </button>
-                  {m.builtin ? (
-                    <button
-                      onClick={() =>
-                        run((uid) => db.updateMember(uid, m.id, { hidden: !m.hidden }))
-                      }
-                      aria-label={t("mem.hide")}
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
-                    >
-                      {m.hidden ? "🙈" : "👁️"}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => remove(m.id, memberDisplayName(m, t))}
-                      aria-label={t("mem.delete")}
-                      className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </li>
-        ))}
+                ) : (
+                  <button
+                    onClick={() => remove(m.id, memberDisplayName(m, t))}
+                    aria-label={t("mem.delete")}
+                    className="grid h-7 w-7 place-items-center rounded-md text-muted transition hover:bg-danger-soft hover:text-danger"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </li>
+          )
+        )}
       </ul>
     </div>
   );

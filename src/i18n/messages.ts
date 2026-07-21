@@ -150,13 +150,16 @@ const id = {
   "cat.health": "Kesehatan",
   "cat.other": "Lainnya",
 
+  "emoji.label": "Ikon",
+  "emoji.hint": "Ketik emoji apa pun dari keyboard.",
+
   "cat.manageTitle": "Kelola kategori",
   "cat.add": "Tambah kategori",
   "cat.namePlaceholder": "Nama kategori",
   "cat.cancel": "Batal",
   "cat.save": "Simpan",
   "cat.builtin": "bawaan",
-  "cat.rename": "Ubah nama",
+  "cat.rename": "Ubah nama & ikon",
   "cat.hide": "Sembunyikan",
   "cat.delete": "Hapus",
   "cat.deleteConfirm":
@@ -175,7 +178,7 @@ const id = {
   "mem.cancel": "Batal",
   "mem.save": "Simpan",
   "mem.builtin": "bawaan",
-  "mem.rename": "Ubah nama",
+  "mem.rename": "Ubah nama & ikon",
   "mem.hide": "Sembunyikan",
   "mem.delete": "Hapus",
   "mem.deleteConfirm":
@@ -345,13 +348,16 @@ const en: Dict = {
   "cat.health": "Health",
   "cat.other": "Other",
 
+  "emoji.label": "Icon",
+  "emoji.hint": "Type any emoji from your keyboard.",
+
   "cat.manageTitle": "Manage categories",
   "cat.add": "Add category",
   "cat.namePlaceholder": "Category name",
   "cat.cancel": "Cancel",
   "cat.save": "Save",
   "cat.builtin": "built-in",
-  "cat.rename": "Rename",
+  "cat.rename": "Rename & change icon",
   "cat.hide": "Hide",
   "cat.delete": "Delete",
   "cat.deleteConfirm":
@@ -370,7 +376,7 @@ const en: Dict = {
   "mem.cancel": "Cancel",
   "mem.save": "Save",
   "mem.builtin": "built-in",
-  "mem.rename": "Rename",
+  "mem.rename": "Rename & change icon",
   "mem.hide": "Hide",
   "mem.delete": "Delete",
   "mem.deleteConfirm":

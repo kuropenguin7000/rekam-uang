@@ -205,6 +205,26 @@ body {
   }
 }
 
+/* The add sheet can be dragged down to dismiss. While the finger is down the
+   transform is set inline (no transition, so it tracks the finger); these two
+   classes drive the release — snapping back, or continuing off-screen. */
+.sheet-move {
+  transition:
+    transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.2s ease;
+}
+.sheet-closing {
+  transform: translateY(100%);
+}
+/* From sm: up the sheet is a centred dialog, so it dismisses by receding
+   rather than sliding off the bottom edge it isn't attached to. */
+@media (min-width: 40rem) {
+  .sheet-closing {
+    transform: scale(0.97);
+    opacity: 0;
+  }
+}
+
 /* A small hover lift on pointer devices; no layout movement. */
 .lift {
   transition:

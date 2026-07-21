@@ -231,7 +231,7 @@ function Chip({
     <button
       onClick={onClick}
       className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-        active ? "grad-chip" : "card text-muted hover:text-foreground"
+        active ? "grad-primary" : "card text-muted hover:text-foreground"
       }`}
     >
       {children}
