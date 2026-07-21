@@ -1,25 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Dashboard } from "@/components/Dashboard";
+import { Beranda } from "@/components/Beranda";
+import { Statistik } from "@/components/Statistik";
+import { Transactions } from "@/components/Transactions";
+import { AccountPanel } from "@/components/AccountPanel";
 import { InsightsPanel } from "@/components/InsightsPanel";
-import { AddTransactionModal } from "@/components/AddTransactionModal";
-import { DashboardIcon, InsightIcon, PlusIcon } from "@/components/icons";
-import { Avatar } from "@/components/Avatar";
-import { NotificationBell } from "@/components/NotificationBell";
+import { AddSheet } from "@/components/AddSheet";
+import { HomeIcon, InsightIcon, PlusIcon, StatsIcon, UserIcon } from "@/components/icons";
 import { BrandMark } from "@/components/Logo";
-import { ThemeToggle } from "@/components/ThemeProvider";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/components/I18nProvider";
 import type { MessageKey } from "@/i18n/messages";
+import type { HomePeriod } from "@/lib/period";
 import { ExpenseProvider, useExpenses } from "@/store/ExpenseStore";
 
-type Tab = "dashboard" | "insights";
+type Tab = "home" | "stats" | "insights" | "account";
 
 const TABS: { id: Tab; labelKey: MessageKey; icon: React.ReactNode }[] = [
-  { id: "dashboard", labelKey: "nav.dashboard", icon: <DashboardIcon /> },
+  { id: "home", labelKey: "nav.home", icon: <HomeIcon /> },
+  { id: "stats", labelKey: "nav.stats", icon: <StatsIcon /> },
   { id: "insights", labelKey: "nav.insights", icon: <InsightIcon /> },
+  { id: "account", labelKey: "nav.account", icon: <UserIcon /> },
 ];
 
 export default function Page() {
@@ -31,98 +32,121 @@ export default function Page() {
 }
 
 function Shell() {
-  const [tab, setTab] = useState<Tab>("dashboard");
+  const [tab, setTab] = useState<Tab>("home");
+  // Full transaction list is a sub-view of Home, not its own tab — it is
+  // reached from Beranda's "Lihat semua" and returns with the back arrow.
+  // Non-null means the list is open; it carries the filter Beranda was showing
+  // so the list opens on the same window rather than resetting to the month.
+  const [showAll, setShowAll] = useState<{
+    period: HomePeriod;
+    month: string;
+  } | null>(null);
   const [adding, setAdding] = useState(false);
-  const { ready, user } = useExpenses();
+  const { ready } = useExpenses();
   const { t } = useI18n();
 
+  function go(next: Tab) {
+    setTab(next);
+    setShowAll(null);
+  }
+
+  const view =
+    tab === "home" ? (
+      showAll ? (
+        <Transactions
+          onBack={() => setShowAll(null)}
+          initialPeriod={showAll.period}
+          initialMonth={showAll.month}
+        />
+      ) : (
+        <Beranda onSeeAll={(period, month) => setShowAll({ period, month })} />
+      )
+    ) : tab === "stats" ? (
+      <Statistik />
+    ) : tab === "insights" ? (
+      <InsightsPanel />
+    ) : (
+      <AccountPanel />
+    );
+
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col px-4 sm:px-6">
-      <header className="flex items-center justify-between py-5">
-        <div className="flex items-center gap-2.5">
+    <div className="min-h-screen sm:flex">
+      {/*
+        Tablet / desktop: the bottom bar becomes a fixed side rail. Same items,
+        same icons, same active colour as the phone bar — only the axis changes,
+        so the two viewports read as one design rather than two.
+      */}
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-[236px] flex-col border-r border-border bg-surface px-3 py-5 sm:flex">
+        <div className="mb-6 flex items-center gap-2.5 px-2">
           <BrandMark className="h-9 w-9" />
-          <div>
-            <h1 className="grad-text text-lg font-bold leading-tight">
-              Rekam Uang
-            </h1>
-            <p className="hidden text-xs text-muted sm:block">{t("app.tagline")}</p>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-bold leading-tight">Rekam Uang</p>
+            <p className="truncate text-[11px] text-muted">{t("app.tagline")}</p>
           </div>
         </div>
 
-        <nav className="hidden rounded-xl border border-border bg-surface p-1 sm:flex">
-          {TABS.map((tab2) => (
-            <TabButton
-              key={tab2.id}
-              active={tab === tab2.id}
-              onClick={() => setTab(tab2.id)}
-              icon={tab2.icon}
-              label={t(tab2.labelKey)}
-            />
+        <nav className="flex flex-col gap-1">
+          {TABS.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => go(item.id)}
+              className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                tab === item.id
+                  ? "bg-primary-soft text-primary"
+                  : "text-muted hover:bg-surface-muted hover:text-foreground"
+              }`}
+            >
+              {item.icon}
+              {t(item.labelKey)}
+            </button>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setAdding(true)}
-            aria-label={t("add.title")}
-            className="grad-primary hidden items-center gap-1.5 rounded-xl px-3.5 py-2 text-sm font-semibold shadow-sm transition sm:inline-flex"
-          >
-            <PlusIcon className="h-4 w-4" />
-            {t("add.button")}
-          </button>
-          <NotificationBell />
-          <LanguageSwitcher />
-          <ThemeToggle />
-          <Link href="/account" aria-label={t("account.aria")} className="rounded-full">
-            <Avatar
-              name={user?.name}
-              email={user?.email}
-              image={user?.image}
-              className="h-9 w-9 text-sm"
-            />
-          </Link>
-        </div>
-      </header>
+        <button
+          onClick={() => setAdding(true)}
+          className="mt-5 flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+        >
+          <PlusIcon className="h-4 w-4" />
+          {t("add.button")}
+        </button>
+      </aside>
 
-      <main className="flex-1 pb-24 sm:pb-8">
-        {!ready ? (
-          <div className="grid h-64 place-items-center text-sm text-muted">
-            {t("common.loading")}
-          </div>
-        ) : (
-          /*
-            Keyed on the tab so switching remounts and replays the entrance.
-            Fades only — deliberately no transform. A transform here (even the
-            translateY(0) an animation leaves behind) makes this element the
-            containing block for every `position: fixed` descendant, which put
-            the transaction modals and the DatePicker overlay off-screen. The
-            motion lives on the cards and rows inside instead.
-          */
-          <div key={tab} className="animate-fade">
-            {tab === "dashboard" ? <Dashboard /> : <InsightsPanel />}
-          </div>
-        )}
+      <main className="flex-1 px-4 pb-28 pt-5 sm:ml-[236px] sm:px-8 sm:pb-10">
+        {/* One column at every width, so tablet and desktop show the same
+            layout the phone does rather than a re-flowed variant. */}
+        <div className="mx-auto w-full max-w-lg">
+          {!ready ? (
+            <div className="grid h-64 place-items-center text-sm text-muted">
+              {t("common.loading")}
+            </div>
+          ) : (
+            <div key={tab + (showAll ? ":all" : "")} className="animate-fade">
+              {view}
+            </div>
+          )}
+        </div>
       </main>
 
-      {/*
-        The add button lives *in* the bottom bar rather than floating over the
-        list. As a FAB it sat in the same bottom-right corner as each row's
-        edit/delete buttons, so whichever row scrolled under it became
-        unclickable — nudging the FAB only moves which row it covers.
-      */}
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex items-stretch border-t border-border bg-surface/95 backdrop-blur sm:hidden">
+      {/* Phone: 5-slot bottom bar with the raised add button in the middle. */}
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch border-t border-border bg-surface/95 pb-2 backdrop-blur sm:hidden">
         <TabBarButton
-          active={tab === "dashboard"}
-          onClick={() => setTab("dashboard")}
-          icon={<DashboardIcon />}
-          label={t("nav.dashboard")}
+          active={tab === "home"}
+          onClick={() => go("home")}
+          icon={<HomeIcon className="h-[21px] w-[21px]" />}
+          label={t("nav.home")}
+        />
+        <TabBarButton
+          active={tab === "stats"}
+          onClick={() => go("stats")}
+          icon={<StatsIcon className="h-[21px] w-[21px]" />}
+          label={t("nav.stats")}
         />
 
-        <div className="flex w-20 shrink-0 justify-center">
+        <div className="flex w-[74px] shrink-0 justify-center">
           <button
             onClick={() => setAdding(true)}
             aria-label={t("add.title")}
-            className="grad-primary -mt-5 grid h-14 w-14 place-items-center rounded-full shadow-lg ring-4 ring-background transition active:scale-90"
+            className="-mt-5 grid h-14 w-14 place-items-center rounded-full bg-primary text-white shadow-lg ring-4 ring-background transition active:scale-90"
           >
             <PlusIcon className="h-6 w-6" />
           </button>
@@ -130,18 +154,23 @@ function Shell() {
 
         <TabBarButton
           active={tab === "insights"}
-          onClick={() => setTab("insights")}
-          icon={<InsightIcon />}
+          onClick={() => go("insights")}
+          icon={<InsightIcon className="h-[21px] w-[21px]" />}
           label={t("nav.insights")}
+        />
+        <TabBarButton
+          active={tab === "account"}
+          onClick={() => go("account")}
+          icon={<UserIcon className="h-[21px] w-[21px]" />}
+          label={t("nav.account")}
         />
       </nav>
 
-      {adding && <AddTransactionModal onClose={() => setAdding(false)} />}
+      {adding && <AddSheet onClose={() => setAdding(false)} />}
     </div>
   );
 }
 
-/** Bottom-bar tab (mobile). */
 function TabBarButton({
   active,
   onClick,
@@ -156,39 +185,13 @@ function TabBarButton({
   return (
     <button
       onClick={onClick}
-      className={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors ${
+      className={`flex flex-1 flex-col items-center gap-[3px] pt-2 text-[10px] font-semibold transition-colors ${
         active ? "text-primary" : "text-muted"
       }`}
     >
-      <span
-        className={`transition-transform duration-200 ${active ? "scale-110" : ""}`}
-      >
+      <span className={`transition-transform duration-200 ${active ? "scale-110" : ""}`}>
         {icon}
       </span>
-      {label}
-    </button>
-  );
-}
-
-function TabButton({
-  active,
-  onClick,
-  icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition ${
-        active ? "bg-primary text-white" : "text-muted hover:text-foreground"
-      }`}
-    >
-      {icon}
       {label}
     </button>
   );

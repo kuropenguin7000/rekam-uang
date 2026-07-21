@@ -15,10 +15,13 @@ same Firebase Auth + Firestore + rules directly).
 ## Stack
 Next.js 16 **static export** (`output: "export"` — no API routes, no
 middleware/proxy, no server components with request APIs) · React 19 ·
-TypeScript · Tailwind v4 · Recharts · **Firebase Auth** (Google sign-in,
+TypeScript · Tailwind v4 · **Firebase Auth** (Google sign-in,
 client SDK session) · **Cloud Firestore via the browser SDK** guarded by
-per-user **security rules** · exceljs + pdf-lib (in-browser export) ·
-**Firebase Hosting** (free plan, `out/`).
+per-user **security rules** · **Firebase Hosting** (free plan, `out/`).
+> **No chart library and no export deps.** The 2026 mobile redesign draws its
+> own bars/heatmap in CSS, so recharts, exceljs and pdf-lib were all removed
+> (~138 packages). Don't reach for a chart lib without checking whether a
+> div with a width percentage does the job.
 
 > Read `node_modules/next/dist/docs/` before writing Next code — this is Next 16
 > with breaking changes from older versions (see AGENTS.md).
@@ -90,10 +93,21 @@ npm run dev                 # http://localhost:3000
   -list) lives in firestore.ts — keep the two in sync.
 
 ## Features
-- **Manual entry**: [AddTransactionModal.tsx](src/components/AddTransactionModal.tsx)
-  (+ header button and mobile FAB in [src/app/page.tsx](src/app/page.tsx));
-  amount, category, **member pills**, optional note, DatePicker. 2 tabs:
-  Dashboard (default) + Wawasan.
+- **App shell** ([src/app/page.tsx](src/app/page.tsx)) — 2026 mobile redesign,
+  implemented from the Claude Design doc "Rekam Uang Mobile Redesign"
+  (directions **1a + 1b + 1c + 1d**, flat surfaces — note the doc renumbered
+  mid-project: the Statistik screen was 1c in the first revision and is 1d now).
+  Four tabs + a centre add button:
+  **Beranda · Statistik · + · Wawasan · Akun**. On a phone that's a bottom bar
+  with the raised `+`; from `sm:` up the *same* items become a fixed 236px
+  side rail. Content stays a single `max-w-lg` column at every width, so
+  tablet/desktop render the phone layout rather than a re-flowed variant.
+- **Manual entry** ([AddSheet.tsx](src/components/AddSheet.tsx), design **1c**):
+  a bottom sheet, not a form — headline amount, quick-amount chips
+  (25/50/100/250rb), category **tiles** (6 then "•••"), member pills, merchant,
+  note, DatePicker. Slides up from the bottom edge below `sm:`; the same content
+  centres as a dialog from `sm:` up, since a sheet is a phone idiom. Portalled
+  to `<body>` like the other dialogs.
 - **Mobile-first inputs** (the owner uses the app daily on a phone):
   [DatePicker.tsx](src/components/DatePicker.tsx) is a button trigger (NO
   free-text typing — no keyboard on mobile) whose calendar renders as a
@@ -101,15 +115,38 @@ npm run dev                 # http://localhost:3000
   (with drop-up near the viewport bottom) on `sm:`+. All money inputs keep raw
   digits in state and display them grouped via `groupDigits`
   ([src/lib/format.ts](src/lib/format.ts)): "1500000" → "1.500.000".
-- **Dashboard**: total spend + transaction count; charts, budget bar, category
-  breakdown; pagination (10/page, filler rows); custom date range for everyone.
+- **Beranda** ([Beranda.tsx](src/components/Beranda.tsx)) has **two layouts**,
+  toggled from the header and remembered in localStorage `sw_home_style`:
+  - **dense** (design 1a) — gradient "Sisa anggaran" hero, three quick stats
+    (Hari ini / Minggu ini / Transaksi), category **bars** (they replaced the
+    pie);
+  - **ring** (design 1b) — [BudgetRing.tsx](src/components/BudgetRing.tsx), a
+    conic-gradient donut segmented by category with spent/budget/left in the
+    hole, plus legend chips. Conic stops are cumulative percentages, so there
+    is no arc maths and nothing to resync when a category changes.
+  Both share the greeting, the **Minggu ini / Bulan ini / Semua** period tabs
+  ([PeriodTabs.tsx](src/components/PeriodTabs.tsx)) and the recent list.
+  The month chip only appears while the *month* filter is active; the other two
+  periods swap it for a static label. "Lihat semua" opens
+  [Transactions.tsx](src/components/Transactions.tsx) — the full list with
+  member chips, pagination and edit/delete — as a sub-view, not a tab, and it
+  **inherits the active period/month** so it never contradicts the screen you
+  came from.
+- **Statistik** ([Statistik.tsx](src/components/Statistik.tsx), design **1d**):
+  spending heatmap calendar (Monday-first, **day numbers in each cell**,
+  intensity vs the month's busiest day, red over the daily budget, today
+  outlined, future dimmed), per-member split with percentages, and a weekly
+  trend with a vs-last-month delta. Cell text colour flips with fill intensity
+  so the numerals stay legible at both ends of the ramp.
+- **Period control**: both screens are scoped to one **calendar month** via
+  `MonthChip` ([period.ts](src/lib/period.ts)); stepping forward past the
+  current month is disabled. Derived figures live in
+  [stats.ts](src/lib/stats.ts) — all pure folds over the loaded transactions.
 - **Member labels** ([src/lib/members.ts](src/lib/members.ts)): every expense is
   tagged with a family member (built-ins Ayah/Ibu/Anak/Bersama, renameable +
   hideable, plus custom `m_*`; managed in
-  [MemberManager.tsx](src/components/MemberManager.tsx) on the account page).
-  The dashboard member chips scope **everything** — stats, charts, list,
-  pagination, export. Household-level budget UI (budget bar, CategoryBudgets)
-  hides while a member is selected, since those caps aren't per-person.
+  [MemberManager.tsx](src/components/MemberManager.tsx) on the Akun tab).
+  Member chips scope the transaction list; Statistik shows the split.
 - **Insights**: [InsightsPanel.tsx](src/components/InsightsPanel.tsx) computes
   `generateInsights(transactions, budget, locale)` ([src/lib/insights.ts](src/lib/insights.ts))
   **client-side in a useMemo** — pure rules (spikes, recurring charges, small
@@ -120,12 +157,19 @@ npm run dev                 # http://localhost:3000
 - **Notifications**: bell derives budget alerts from store state
   ([src/lib/notifications.ts](src/lib/notifications.ts)); persistent log in
   localStorage **`sw_notif_log_v2`**, capped 20, cleared on logout.
-- **Export**: built **in the browser** from store data —
-  [ExportMenu.tsx](src/components/ExportMenu.tsx) dynamically imports
-  [src/lib/export.ts](src/lib/export.ts) (exceljs resolves to its browser
-  bundle via the package "browser" field; pdf-lib is browser-first). Localized
-  category + member names, a member column, and a per-member breakdown;
-  follows the dashboard's date **and** member filter.
+- **Akun** ([AccountPanel.tsx](src/components/AccountPanel.tsx)): profile,
+  monthly + daily budget, per-category budgets, member/category managers,
+  income purge, logout. The budget *controls* moved here because Beranda now
+  shows the budget as a single answer. `/account` still exists for deep links
+  and renders the same panel.
+- **No export.** Removed in the redesign along with exceljs + pdf-lib.
+- **Styling conventions** ([globals.css](src/app/globals.css)): surfaces are
+  flat — `.card` (surface + hairline + 20px radius), `.hero-grad` (the Beranda
+  hero), `.num` (tabular mono for money). Selected/active controls use
+  `.grad-primary` (full three-stop ramp, for the big save button) or
+  `.grad-chip` (tighter two-stop, for chips/pills/tabs — the three-stop ramp
+  goes muddy at chip size). Category tiles keep their own category colour so
+  they stay identifiable.
 - **i18n**: static HTML prerenders in `id`; [I18nProvider.tsx](src/components/I18nProvider.tsx)
   restores the stored locale from localStorage in a post-hydration effect
   (NOT a state initializer — avoids hydration mismatches).
@@ -157,6 +201,31 @@ config); optional `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1`.
 - Pre-existing lint debt: `react-hooks/set-state-in-effect` errors across
   several components (`npm run lint` was already red before the migration;
   build/tsc are green).
+
+## Gotchas paid for in blood
+- **Nothing may bleed past the viewport horizontally.** `html` carries
+  `overflow-x: clip` as a backstop (`clip`, not `hidden` — `hidden` makes a
+  scroll container and forces the other axis to `auto`, which breaks the fixed
+  bottom nav). The bug behind it: a decorative circle at `-right-5` inside the
+  hero relied on `overflow-hidden` + `rounded-[22px]` to clip it, and **Safari
+  does not reliably clip absolutely-positioned children of a rounded
+  overflow-hidden box** — 4px escaped and scrolled the whole page sideways on
+  iOS only. Keep decorative elements inside their parent's box.
+- **Declare `backdrop-filter` unprefixed only.** Tailwind v4 runs Lightning CSS,
+  which adds prefixes per target; hand-writing `-webkit-` alongside it made the
+  pair collapse to the prefixed one and silently dropped the effect in Firefox.
+- **A hand-rolled CSS class used but not defined fails silently** — no build
+  error, no console warning, the element just renders unstyled (this is how the
+  save button shipped as bare text after `.grad-primary` was deleted with the
+  old backdrop block). When touching globals.css, grep that every `.card` /
+  `.grad-*` / `.animate-*` / `.hero-grad` / `.num` used in a component still
+  exists.
+- **A Next.js route folder starting with `_` is private and will not route.**
+  A throwaway probe page at `app/_probe` 404s, which looks exactly like a page
+  that renders fine and measures clean.
+- **The dev server can serve stale CSS** after a globals.css edit — if a rule
+  seems missing, check the built output in `out/` before concluding the
+  compiler dropped it.
 
 ## Working preferences
 - **Verify token-efficiently**: prefer text-based checks (DOM/computed-style via

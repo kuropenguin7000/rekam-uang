@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { I18nProvider } from "@/components/I18nProvider";
-import { Backdrop } from "@/components/Backdrop";
 import { DEFAULT_LOCALE, dirOf } from "@/i18n/config";
 
 const geistSans = Geist({
@@ -44,7 +43,6 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="min-h-full flex flex-col">
-        <Backdrop />
         <I18nProvider initialLocale={DEFAULT_LOCALE}>
           <ThemeProvider>{children}</ThemeProvider>
         </I18nProvider>
