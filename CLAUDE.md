@@ -56,7 +56,7 @@ npm run dev                 # http://localhost:3000
   → `signInWithPopup`; the SDK persists the session in IndexedDB and refreshes
   tokens itself — there is no cookie and no session endpoint.
 - **Page guarding is client-side** (static hosting has no middleware):
-  [src/store/ExpenseStore.tsx](src/store/ExpenseStore.tsx) (for `/`) and
+  [src/store/ExpenseStore.tsx](src/store/ExpenseStore.tsx) (for `/app`) and
   [src/app/account/page.tsx](src/app/account/page.tsx) subscribe to
   `onAuthStateChanged` and redirect to `/login` when signed out; the login
   page redirects signed-in visitors to `/`.
@@ -93,8 +93,46 @@ npm run dev                 # http://localhost:3000
   Client-side sanitizing (`sanitizeNewTransaction`, caps, category-vs-effective
   -list) lives in firestore.ts — keep the two in sync.
 
+## Routes
+`/` **landing** (public marketing page) · `/app` the app shell · `/login` ·
+`/account` (deep-link twin of the Akun tab) · `/terms`.
+- **The app lives at `/app`, not `/`.** The root is the public landing page —
+  it is the first thing a new visitor sees, and the reason signed-out traffic
+  no longer flashes the app shell.
+- **Route and fragment names are English** (`/app`, `/login`, `/account`,
+  `/terms`, `#features`, `#how-it-works`) even though the UI copy is Indonesian
+  by default. Only visible strings get localised.
+- **Never redirect on a back/forward navigation.** The `/`→`/app` hop below is
+  skipped when `performance.getEntriesByType("navigation")[0].type` is
+  `back_forward`; without that check, pressing back from `/app` lands on `/`
+  and is instantly forwarded again, making the landing page unreachable for
+  anyone signed in. Logout goes to `/` for the same reason — landing on
+  `/login` left `/app` as the previous entry, which bounces signed-out visitors
+  back to `/login`: a loop with no exit.
+- A signed-in visitor asking for `/` is forwarded to `/app`. Firebase resolves
+  its session from IndexedDB *asynchronously*, far too late to stop the landing
+  page painting, so [signedInHint.ts](src/lib/signedInHint.ts) mirrors the
+  resolved auth state into a synchronous localStorage flag (`sw_signed_in`) and
+  an inline script in [layout.tsx](src/app/layout.tsx) reads it **before paint**
+  — same trick as the theme script. The landing page also redirects from its
+  own `onAuthStateChanged` as the fallback for a browser holding the session but
+  not the hint. The flag is **cosmetic only**: `/app` still runs the real auth
+  check, so a stale flag costs one hop to `/login` and clears itself. Never
+  treat it as authorization.
+
 ## Features
-- **App shell** ([src/app/page.tsx](src/app/page.tsx)) — 2026 mobile redesign,
+- **Landing** ([src/app/page.tsx](src/app/page.tsx)) — hero, six feature cards,
+  three-step how-it-works, trust row, closing CTA, footer. Fully i18n'd
+  (`land.*` keys) and built only from existing utilities (`.card`, `.hero-grad`,
+  `.grad-primary`, `.grad-chip`, `.num`, `.lift`) so it cannot drift from the
+  app's look. The hero mock is a still of the real Beranda card. **It must not
+  claim AI** — the insights are rule-based on purpose. Sections fade up via a
+  `Reveal` wrapper (IntersectionObserver + `.reveal`/`.is-visible`). Because
+  `.reveal` starts at `opacity: 0`, **every path that skips the class is a
+  permanently blank section** — hence three fail-opens: a `<noscript>` style
+  override, a no-IntersectionObserver branch, and an immediate reveal for
+  anything already inside the viewport at mount.
+- **App shell** ([src/app/app/page.tsx](src/app/app/page.tsx)) — 2026 mobile redesign,
   implemented from the Claude Design doc "Rekam Uang Mobile Redesign"
   (directions **1a + 1b + 1c + 1d**, flat surfaces — note the doc renumbered
   mid-project: the Statistik screen was 1c in the first revision and is 1d now).
@@ -202,8 +240,9 @@ config); optional `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1`.
 - Notification log is **per-browser** (localStorage), not synced server-side.
 - Popup sign-in can be blocked in mobile in-app browsers; `signInWithRedirect`
   is future work.
-- Signed-out visitors briefly see the app shell before the client-side
-  redirect to /login kicks in (no middleware on static hosting).
+- Signed-out visitors who deep-link to **`/app`** still briefly see the app
+  shell before the client-side redirect to /login (no middleware on static
+  hosting). `/` is unaffected — it is the public landing page now.
 - Pre-existing lint debt: `react-hooks/set-state-in-effect` errors across
   several components (`npm run lint` was already red before the migration;
   build/tsc are green).

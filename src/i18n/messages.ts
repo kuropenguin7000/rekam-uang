@@ -8,6 +8,75 @@ const id = {
   "nav.account": "Akun",
   "nav.insights": "Wawasan",
 
+  "land.navFeatures": "Fitur",
+  "land.navHow": "Cara kerja",
+  "land.signIn": "Masuk",
+  "land.openApp": "Buka aplikasi",
+  "land.backHome": "Kembali ke beranda",
+  "land.eyebrowFeatures": "Fitur",
+  "land.eyebrowHow": "Cara kerja",
+  "land.eyebrowTrust": "Tenang dipakai",
+  "land.badge": "Gratis selamanya · Tanpa iklan",
+  "land.heroTitle": "Tahu ke mana uangmu pergi.",
+  "land.heroTitleAccent": "uangmu",
+  "land.heroBody":
+    "Catat pengeluaran harian dalam hitungan detik, lalu lihat polanya dalam grafik yang mudah dibaca. Dibuat untuk keluarga Indonesia.",
+  "land.ctaPrimary": "Mulai gratis",
+  "land.ctaSecondary": "Lihat fitur",
+  "land.ctaNote": "Masuk dengan akun Google. Tanpa kartu kredit.",
+  "land.mockUsed": "Terpakai {used} dari {budget}",
+  "land.mockToday": "Hari ini",
+  "land.mockWeek": "Minggu ini",
+  "land.stat1": "Biaya, selamanya",
+  "land.stat2": "Ketukan untuk mencatat",
+  "land.stat3": "Bahasa + mode gelap",
+  "land.stat4": "Iklan & pelacak",
+
+  "land.featTitle": "Semua yang dibutuhkan, tidak lebih",
+  "land.featBody":
+    "Bukan aplikasi akuntansi. Hanya pencatat pengeluaran yang cukup cepat untuk dipakai tiap hari.",
+  "land.f1Title": "Catat dalam hitungan detik",
+  "land.f1Body":
+    "Sheet muncul dari bawah: ketuk nominal cepat, pilih kategori, simpan. Tutup dengan usap ke bawah.",
+  "land.f2Title": "Sisa anggaran langsung terlihat",
+  "land.f2Body":
+    "Beranda menjawab satu pertanyaan — masih boleh belanja berapa? Pilih tampilan ringkas atau donat anggaran.",
+  "land.f3Title": "Statistik yang jujur",
+  "land.f3Body":
+    "Kalender menandai hari boros, tren mingguan dibanding bulan lalu, dan pembagian per anggota keluarga.",
+  "land.f4Title": "Wawasan otomatis",
+  "land.f4Body":
+    "Aturan sederhana menandai lonjakan belanja, langganan berulang, dan bocor halus. Semua dihitung di perangkatmu.",
+  "land.f5Title": "Label anggota keluarga",
+  "land.f5Body":
+    "Tandai tiap pengeluaran milik Ayah, Ibu, Anak, atau Bersama. Tambah anggota sendiri dengan emoji bebas.",
+  "land.f6Title": "Anggaran per kategori",
+  "land.f6Body":
+    "Pasang batas bulanan, harian, dan batas khusus tiap kategori. Pemberitahuan muncul sebelum kebablasan.",
+
+  "land.howTitle": "Tiga langkah, selesai",
+  "land.how1Title": "Masuk dengan Google",
+  "land.how1Body": "Tanpa formulir pendaftaran, tanpa kata sandi baru.",
+  "land.how2Title": "Catat pengeluaran",
+  "land.how2Body": "Nominal, kategori, siapa yang belanja — selesai dalam tiga ketukan.",
+  "land.how3Title": "Lihat polanya",
+  "land.how3Body": "Grafik dan wawasan terisi sendiri seiring catatanmu bertambah.",
+
+  "land.trustTitle": "Gratis, dan datamu tetap milikmu",
+  "land.t1Title": "Benar-benar gratis",
+  "land.t1Body":
+    "Berjalan di paket gratis Firebase. Tanpa langganan, tanpa iklan, tanpa jual data.",
+  "land.t2Title": "Hanya kamu yang bisa membuka",
+  "land.t2Body":
+    "Tiap catatan tersimpan di bawah akunmu sendiri dan dijaga aturan keamanan per pengguna.",
+  "land.t3Title": "Dua bahasa, mode gelap",
+  "land.t3Body":
+    "Bahasa Indonesia dan English, tema terang dan gelap, dirancang untuk layar ponsel.",
+
+  "land.finalTitle": "Mulai catat hari ini",
+  "land.finalBody": "Butuh dua menit untuk mencatat pengeluaran pertamamu.",
+  "land.footerTagline": "Pencatat pengeluaran untuk keluarga Indonesia.",
+
   "home.greetMorning": "Selamat pagi,",
   "home.greetNoon": "Selamat siang,",
   "home.greetAfternoon": "Selamat sore,",
@@ -205,6 +274,75 @@ const en: Dict = {
   "nav.stats": "Stats",
   "nav.account": "Account",
   "nav.insights": "Insights",
+
+  "land.navFeatures": "Features",
+  "land.navHow": "How it works",
+  "land.signIn": "Sign in",
+  "land.openApp": "Open app",
+  "land.backHome": "Back to home",
+  "land.eyebrowFeatures": "Features",
+  "land.eyebrowHow": "How it works",
+  "land.eyebrowTrust": "Peace of mind",
+  "land.badge": "Free forever · No ads",
+  "land.heroTitle": "Know where your money goes.",
+  "land.heroTitleAccent": "your money",
+  "land.heroBody":
+    "Log daily spending in seconds, then see the pattern in charts that are actually readable. Built for Indonesian households.",
+  "land.ctaPrimary": "Start free",
+  "land.ctaSecondary": "See features",
+  "land.ctaNote": "Sign in with Google. No credit card.",
+  "land.mockUsed": "{used} of {budget} used",
+  "land.mockToday": "Today",
+  "land.mockWeek": "This week",
+  "land.stat1": "Cost, forever",
+  "land.stat2": "Taps to log an expense",
+  "land.stat3": "Languages + dark mode",
+  "land.stat4": "Ads & trackers",
+
+  "land.featTitle": "Everything you need, nothing more",
+  "land.featBody":
+    "Not an accounting suite. Just an expense tracker fast enough to use every single day.",
+  "land.f1Title": "Log it in seconds",
+  "land.f1Body":
+    "A sheet slides up from the bottom: tap a quick amount, pick a category, save. Swipe down to dismiss.",
+  "land.f2Title": "Budget left, up front",
+  "land.f2Body":
+    "Home answers one question — how much can I still spend? Pick the compact layout or the budget ring.",
+  "land.f3Title": "Statistics that don't flatter",
+  "land.f3Body":
+    "A calendar marks your heavy days, a weekly trend compares against last month, and spending splits by member.",
+  "land.f4Title": "Automatic insights",
+  "land.f4Body":
+    "Plain rules flag spikes, recurring charges and small leaks. All of it computed on your own device.",
+  "land.f5Title": "Family member labels",
+  "land.f5Body":
+    "Tag each expense to Dad, Mum, Kids or Shared. Add your own members with any emoji you like.",
+  "land.f6Title": "Per-category budgets",
+  "land.f6Body":
+    "Set a monthly cap, a daily cap, and a separate limit per category. Alerts arrive before you overshoot.",
+
+  "land.howTitle": "Three steps and you're done",
+  "land.how1Title": "Sign in with Google",
+  "land.how1Body": "No signup form, no new password to remember.",
+  "land.how2Title": "Log an expense",
+  "land.how2Body": "Amount, category, who spent it — done in three taps.",
+  "land.how3Title": "Watch the pattern",
+  "land.how3Body": "Charts and insights fill themselves in as your log grows.",
+
+  "land.trustTitle": "Free, and your data stays yours",
+  "land.t1Title": "Genuinely free",
+  "land.t1Body":
+    "Runs on Firebase's free tier. No subscription, no ads, no selling your data.",
+  "land.t2Title": "Only you can open it",
+  "land.t2Body":
+    "Every record lives under your own account, guarded by per-user security rules.",
+  "land.t3Title": "Two languages, dark mode",
+  "land.t3Body":
+    "Indonesian and English, light and dark themes, designed for a phone screen.",
+
+  "land.finalTitle": "Start tracking today",
+  "land.finalBody": "It takes two minutes to log your first expense.",
+  "land.footerTagline": "An expense tracker for Indonesian households.",
 
   "home.greetMorning": "Good morning,",
   "home.greetNoon": "Good afternoon,",

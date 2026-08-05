@@ -8,6 +8,7 @@ import {
   signInWithPopup,
 } from "firebase/auth";
 import { clientAuth, firebaseConfigured } from "@/lib/firebaseClient";
+import { markSignedIn } from "@/lib/signedInHint";
 import { GoogleIcon } from "@/components/icons";
 import { BrandMark } from "@/components/Logo";
 import { useI18n } from "@/components/I18nProvider";
@@ -22,7 +23,8 @@ export default function LoginPage() {
   useEffect(() => {
     if (!firebaseConfigured()) return;
     return onAuthStateChanged(clientAuth(), (u) => {
-      if (u) window.location.replace("/");
+      markSignedIn(!!u);
+      if (u) window.location.replace("/app");
     });
   }, []);
 
@@ -35,7 +37,8 @@ export default function LoginPage() {
     setError(null);
     try {
       await signInWithPopup(clientAuth(), new GoogleAuthProvider());
-      window.location.replace("/");
+      markSignedIn(true);
+      window.location.replace("/app");
     } catch {
       setError(t("login.errOauth"));
       setBusy(false);
@@ -44,15 +47,25 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen place-items-center px-4">
+      {/* An explicit way back to the landing page. The browser back button is
+          not enough on its own: arriving here straight after logout leaves
+          /app as the previous entry, and /app bounces signed-out visitors
+          right back to this page. */}
+      <Link
+        href="/"
+        className="fixed start-4 top-4 text-sm font-medium text-muted transition hover:text-foreground"
+      >
+        ‹ {t("land.backHome")}
+      </Link>
       <div className="fixed end-4 top-4">
         <LanguageSwitcher />
       </div>
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
+        <Link href="/" className="mb-8 block text-center">
           <BrandMark className="mx-auto mb-3 h-12 w-12" />
           <h1 className="text-2xl font-bold">Rekam Uang</h1>
           <p className="mt-1 text-sm text-muted">{t("login.tagline")}</p>
-        </div>
+        </Link>
 
         <div className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
           {error && (

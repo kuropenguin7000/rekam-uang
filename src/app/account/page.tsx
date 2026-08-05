@@ -23,7 +23,7 @@ function AccountRoute() {
   return (
     <div className="mx-auto w-full max-w-lg px-4 py-6 sm:px-6">
       <Link
-        href="/"
+        href="/app"
         className="mb-5 inline-block text-sm font-medium text-muted hover:text-foreground"
       >
         ‹ {t("acc.back")}

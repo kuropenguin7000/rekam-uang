@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signOut } from "firebase/auth";
 import { clientAuth } from "@/lib/firebaseClient";
+import { markSignedIn } from "@/lib/signedInHint";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { Avatar } from "./Avatar";
@@ -35,8 +36,11 @@ export function AccountPanel() {
     } catch {
       /* storage unavailable — ignore */
     }
+    markSignedIn(false);
     await signOut(clientAuth());
-    window.location.href = "/login";
+    // Land on the public home, not /login: the previous history entry is /app,
+    // which bounces a signed-out visitor back to /login — a loop with no exit.
+    window.location.href = "/";
   }
 
   function saveBudget() {

@@ -59,6 +59,9 @@ body {
 
 html {
   background: var(--background);
+  /* In-page anchors (the landing page's "Features" / "How it works") glide
+     instead of teleporting. Turned off under reduce-motion below. */
+  scroll-behavior: smooth;
   /* Nothing in this app is meant to scroll sideways. `clip` rather than
      `hidden` because it does not create a scroll container, so position:
      sticky and fixed keep working — `hidden` here would quietly break the
@@ -225,6 +228,50 @@ body {
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Landing page
+   --------------------------------------------------------------------------- */
+
+/* Anchor targets must clear the sticky header, or a jump leaves the section
+   heading hidden underneath it. */
+.scroll-anchor {
+  scroll-margin-top: 76px;
+}
+
+/* Sections fade up as they enter the viewport (see the Reveal component).
+   `.reveal` starts hidden, so anything that would stop the observer from ever
+   running has to be covered: reduce-motion below, and a <noscript> override on
+   the page itself. Otherwise a JS failure leaves a blank marketing page. */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity 0.5s ease,
+    transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* A soft spotlight behind the hero. Painted as a background image rather than
+   an absolutely-positioned child: a stray decorative box escaping a rounded
+   parent is exactly what once scrolled the whole page sideways on iOS. */
+.glow-hero {
+  background-image: radial-gradient(
+    62rem 32rem at 50% -18%,
+    rgb(99 102 241 / 0.13),
+    transparent 70%
+  );
+}
+:root.dark .glow-hero {
+  background-image: radial-gradient(
+    62rem 32rem at 50% -18%,
+    rgb(99 102 241 / 0.2),
+    transparent 70%
+  );
+}
+
 /* A small hover lift on pointer devices; no layout movement. */
 .lift {
   transition:
@@ -238,17 +285,84 @@ body {
   }
 }
 
+/* Full-bleed dotted texture behind the hero. Painted as a background-image,
+   never an absolutely-positioned child — a stray decorative box escaping a
+   rounded parent is exactly what once scrolled the page sideways on iOS. */
+.grid-tex {
+  background-image: radial-gradient(rgb(99 102 241 / 0.1) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+:root.dark .grid-tex {
+  background-image: radial-gradient(rgb(129 140 248 / 0.11) 1px, transparent 1px);
+}
+
+/* A card whose hairline is the brand gradient — lifts the featured bento cell
+   above the flat surfaces around it. Double background: solid surface fill on
+   padding-box, gradient on border-box. The fill is a token, so dark just works.
+   Pair it with a `rounded-*` utility (it sets no radius of its own). */
+.grad-outline {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(135deg, #6d28d9, #4f46e5 55%, #0ea5e9) border-box;
+}
+
+/* The hero device. A rounded slab with a thick bezel and soft shadow; the
+   screen sits inside with its own clip so the whole thing reads as one phone.
+   Self-contained (no absolutely-positioned children) to keep it inside its
+   box at every width. */
+.phone-frame {
+  border-radius: 36px;
+  background: #0b1020;
+  padding: 9px;
+  box-shadow:
+    0 40px 90px -42px rgb(30 27 75 / 0.55),
+    0 0 0 1px rgb(255 255 255 / 0.04) inset;
+}
+:root.dark .phone-frame {
+  background: #05070f;
+  box-shadow: 0 40px 90px -44px rgb(0 0 0 / 0.8);
+}
+.phone-screen {
+  border-radius: 27px;
+  overflow: hidden;
+  background: var(--background);
+}
+
+/* Gentle idle bob for the floating hero chips. Off under reduce-motion below. */
+@keyframes float-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.animate-float {
+  animation: float-bob 4.5s ease-in-out infinite;
+}
+
 /* Respect the OS "reduce motion" setting: entrance animations collapse to
    their final state. */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .animate-pop,
   .animate-fade,
   .animate-rise,
   .animate-row,
+  .animate-float,
   .animate-sheet {
     animation: none !important;
   }
   .lift {
+    transition: none;
+  }
+  .reveal {
+    opacity: 1;
+    transform: none;
     transition: none;
   }
 }

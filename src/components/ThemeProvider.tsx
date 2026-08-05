@@ -34,6 +34,24 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.classList.toggle("dark", initial === "dark");
   }, []);
 
+  // Keep the mobile toolbar tint matched to the *applied* theme so no white
+  // seam shows at the browser-chrome edge. layout.tsx emits two media-scoped
+  // theme-color metas (tracking the OS theme); this media-less one is appended
+  // last, so it always matches and wins — which also covers an in-app override
+  // that disagrees with the OS. Colors mirror the --background tokens.
+  useEffect(() => {
+    let meta = document.head.querySelector<HTMLMetaElement>(
+      'meta[name="theme-color"][data-dynamic]'
+    );
+    if (!meta) {
+      meta = document.createElement("meta");
+      meta.name = "theme-color";
+      meta.setAttribute("data-dynamic", "");
+      document.head.appendChild(meta);
+    }
+    meta.content = theme === "dark" ? "#0b1020" : "#f6f7fb";
+  }, [theme]);
+
   const toggle = useCallback(() => {
     setTheme((prev) => {
       const next = prev === "dark" ? "light" : "dark";

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { clientAuth } from "@/lib/firebaseClient";
+import { markSignedIn } from "@/lib/signedInHint";
 import * as db from "@/lib/firestore";
 import type {
   NewTransaction,
@@ -125,6 +126,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   // hosting to do this for us).
   useEffect(() => {
     const unsub = onAuthStateChanged(clientAuth(), async (fbUser) => {
+      markSignedIn(!!fbUser);
       if (!fbUser) {
         window.location.replace("/login");
         return;
