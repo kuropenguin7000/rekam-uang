@@ -191,6 +191,12 @@ npm run dev                 # http://localhost:3000
   outlined, future dimmed), per-member split with percentages, and a weekly
   trend with a vs-last-month delta. Cell text colour flips with fill intensity
   so the numerals stay legible at both ends of the ramp.
+  - **Every heatmap cell opens `DayDetail`** — that day's expenses, biggest
+    first, plus the overage when the day broke the daily budget. Read-only on
+    purpose: editing lives in the transaction list. Its rows come from the same
+    `date ===` fold `heatmap` uses, so the popup cannot contradict the cell.
+    Note `over` is a strict `>`, so a day landing exactly on the limit is not
+    flagged and shows no overage.
 - **Period control**: both screens are scoped to one **calendar month** via
   `MonthChip` ([period.ts](src/lib/period.ts)); stepping forward past the
   current month is disabled. Derived figures live in

@@ -4,7 +4,9 @@ import { useMemo, useState } from "react";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { MonthChip } from "./MonthChip";
+import { Modal } from "./Modal";
 import { memberDisplayName } from "@/lib/memberName";
+import { categoryDisplayName } from "@/lib/categoryName";
 import { formatCurrency, formatDate, startOfMonthISO, todayISO } from "@/lib/format";
 import { addMonths } from "@/lib/period";
 import { heatmap, inMonth, memberSplit, monthOverMonth, weeklyTrend } from "@/lib/stats";
@@ -18,6 +20,8 @@ export function Statistik() {
   const { transactions, dailyBudget, memberMeta } = useExpenses();
   const { t, locale } = useI18n();
   const [month, setMonth] = useState(() => startOfMonthISO(todayISO()));
+  /** yyyy-mm-dd of the heatmap cell being inspected, or null. */
+  const [day, setDay] = useState<string | null>(null);
 
   const rows = useMemo(() => inMonth(transactions, month), [transactions, month]);
   const spent = useMemo(() => total(rows), [rows]);
@@ -61,14 +65,20 @@ export function Statistik() {
             cell === null ? (
               <div key={`b${i}`} aria-hidden />
             ) : (
-              <div
+              <button
                 key={cell.date}
+                type="button"
+                onClick={() => setDay(cell.date)}
                 title={`${formatDate(cell.date)} · ${formatCurrency(cell.amount)}`}
-                className="grid aspect-square place-items-center rounded-[7px] text-[9px] font-semibold transition-colors"
+                aria-label={t("stats.dayOpen", {
+                  date: formatDate(cell.date),
+                  amount: formatCurrency(cell.amount),
+                })}
+                className="grid aspect-square place-items-center rounded-[7px] text-[9px] font-semibold transition-colors hover:brightness-110"
                 style={cellStyle(cell)}
               >
                 {Number(cell.date.slice(8, 10))}
-              </div>
+              </button>
             )
           )}
         </div>
@@ -172,7 +182,98 @@ export function Statistik() {
           {t("stats.monthTotal", { amount: formatCurrency(spent) })}
         </p>
       </section>
+
+      {day && <DayDetail date={day} onClose={() => setDay(null)} />}
     </div>
+  );
+}
+
+/**
+ * What actually happened on one heatmap cell. Read-only on purpose: this is a
+ * "why is that square dark?" answer, and editing lives in the transaction list
+ * where the surrounding context makes it safe.
+ */
+function DayDetail({ date, onClose }: { date: string; onClose: () => void }) {
+  const { transactions, dailyBudget, categoryMeta, memberMeta } = useExpenses();
+  const { t } = useI18n();
+
+  // Biggest first — on an over-budget day the culprit is then the top row.
+  const rows = useMemo(
+    () =>
+      transactions.filter((x) => x.date === date).sort((a, b) => b.amount - a.amount),
+    [transactions, date]
+  );
+  const dayTotal = useMemo(() => total(rows), [rows]);
+  const over = dailyBudget > 0 ? dayTotal - dailyBudget : 0;
+
+  return (
+    <Modal onClose={onClose} labelledBy="stats-day-title">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 id="stats-day-title" className="text-base font-semibold">
+            {formatDate(date)}
+          </h3>
+          <p className="num mt-0.5 text-[22px] font-bold leading-none tracking-tight">
+            {formatCurrency(dayTotal)}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          aria-label={t("dash.cancel")}
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted transition hover:bg-surface-muted"
+        >
+          ✕
+        </button>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="rounded-xl bg-surface-muted p-4 text-center text-sm text-muted">
+          {t("stats.dayEmpty")}
+        </p>
+      ) : (
+        <>
+          <div className="mb-2.5 flex items-center justify-between gap-2 text-[11px]">
+            <span className="text-muted">
+              {t("stats.dayCount", { n: rows.length })}
+            </span>
+            {over > 0 && (
+              <span className="font-semibold text-danger">
+                {t("stats.dayOverDaily", { amount: formatCurrency(over) })}
+              </span>
+            )}
+          </div>
+
+          <ul className="divide-y divide-border">
+            {rows.map((tx) => {
+              const cat = categoryMeta(tx.category);
+              const mem = memberMeta(tx.member);
+              return (
+                <li key={tx.id} className="flex items-center gap-2.5 py-2.5">
+                  <span
+                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm"
+                    style={{ background: cat.color + "22" }}
+                  >
+                    {cat.icon}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium">
+                      {tx.merchant || categoryDisplayName(cat, t)}
+                    </p>
+                    <p className="truncate text-[11px] text-muted">
+                      {mem ? `${mem.icon} ${memberDisplayName(mem, t)} · ` : ""}
+                      {categoryDisplayName(cat, t)}
+                    </p>
+                  </div>
+                  <span className="num shrink-0 text-[13px] font-semibold">
+                    {formatCurrency(tx.amount)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Modal>
   );
 }
 

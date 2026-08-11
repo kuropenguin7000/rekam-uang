@@ -96,6 +96,11 @@ const id = {
   "home.allTx": "Semua transaksi",
   "home.empty": "Belum ada pengeluaran bulan ini.",
 
+  "stats.dayOpen": "Lihat rincian {date}, {amount}",
+  "stats.dayEmpty": "Tidak ada pengeluaran di tanggal ini.",
+  "stats.dayCount": "{n} transaksi",
+  "stats.dayOverDaily": "Lewat {amount} dari batas harian",
+
   "stats.heatTitle": "Kalender pengeluaran",
   "stats.heatSub": "per hari",
   "stats.less": "Sedikit",
@@ -437,6 +442,11 @@ const en: Dict = {
   "home.seeAll": "See all",
   "home.allTx": "All transactions",
   "home.empty": "No spending this month yet.",
+
+  "stats.dayOpen": "See the {date} breakdown, {amount}",
+  "stats.dayEmpty": "No expenses on this day.",
+  "stats.dayCount": "{n} transactions",
+  "stats.dayOverDaily": "{amount} over the daily limit",
 
   "stats.heatTitle": "Spending calendar",
   "stats.heatSub": "per day",
