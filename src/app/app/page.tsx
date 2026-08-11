@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Beranda } from "@/components/Beranda";
 import { Statistik } from "@/components/Statistik";
 import { Transactions } from "@/components/Transactions";
+import { Commitments } from "@/components/Commitments";
 import { AccountPanel } from "@/components/AccountPanel";
 import { InsightsPanel } from "@/components/InsightsPanel";
 import { AddSheet } from "@/components/AddSheet";
@@ -41,6 +42,8 @@ function Shell() {
     period: HomePeriod;
     month: string;
   } | null>(null);
+  // Commitments is the other Home sub-view, reached from the Beranda card.
+  const [showCommitments, setShowCommitments] = useState(false);
   const [adding, setAdding] = useState(false);
   const { ready } = useExpenses();
   const { t } = useI18n();
@@ -48,6 +51,7 @@ function Shell() {
   function go(next: Tab) {
     setTab(next);
     setShowAll(null);
+    setShowCommitments(false);
   }
 
   const view =
@@ -58,8 +62,13 @@ function Shell() {
           initialPeriod={showAll.period}
           initialMonth={showAll.month}
         />
+      ) : showCommitments ? (
+        <Commitments onBack={() => setShowCommitments(false)} />
       ) : (
-        <Beranda onSeeAll={(period, month) => setShowAll({ period, month })} />
+        <Beranda
+          onSeeAll={(period, month) => setShowAll({ period, month })}
+          onOpenCommitments={() => setShowCommitments(true)}
+        />
       )
     ) : tab === "stats" ? (
       <Statistik />
@@ -120,7 +129,10 @@ function Shell() {
               {t("common.loading")}
             </div>
           ) : (
-            <div key={tab + (showAll ? ":all" : "")} className="animate-fade">
+            <div
+              key={tab + (showAll ? ":all" : showCommitments ? ":com" : "")}
+              className="animate-fade"
+            >
               {view}
             </div>
           )}

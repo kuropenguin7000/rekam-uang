@@ -25,6 +25,7 @@ import {
   type HomePeriod,
 } from "@/lib/period";
 import { categoryBars, inBounds, spentOn, spentThisWeek } from "@/lib/stats";
+import { nextMonthOf, totalsForMonth } from "@/lib/commitments";
 import { total } from "@/lib/aggregate";
 import type { MessageKey } from "@/i18n/messages";
 
@@ -43,11 +44,14 @@ const STYLE_KEY = "sw_home_style";
 
 export function Beranda({
   onSeeAll,
+  onOpenCommitments,
 }: {
   /** Hands the active filter to the list so it opens on the same window. */
   onSeeAll: (period: HomePeriod, month: string) => void;
+  onOpenCommitments: () => void;
 }) {
-  const { transactions, budget, user, categoryMeta, memberMeta } = useExpenses();
+  const { transactions, budget, user, categoryMeta, memberMeta, commitments } =
+    useExpenses();
   const { t } = useI18n();
   const [month, setMonth] = useState(() => startOfMonthISO(todayISO()));
   const [period, setPeriod] = useState<HomePeriod>("month");
@@ -85,6 +89,15 @@ export function Beranda({
   const over = remaining < 0;
   const todaySpend = spentOn(transactions, todayISO());
   const weekSpend = useMemo(() => spentThisWeek(transactions), [transactions]);
+
+  // Commitments are always quoted for NEXT month — the month you can still do
+  // something about. The selected month chip deliberately doesn't apply here.
+  const commitmentTotals = useMemo(
+    () => totalsForMonth(commitments, nextMonthOf(todayISO())),
+    [commitments]
+  );
+  const commitmentDue = commitmentTotals.due;
+
   const firstName = (user?.name ?? "").split(" ")[0] || t("acc.user");
 
   return (
@@ -238,6 +251,36 @@ export function Beranda({
           </section>
         </>
       )}
+
+      {/* Commitments — money already promised to someone else. A card rather
+          than a tab: the bottom bar is a fixed five slots. */}
+      <button
+        onClick={onOpenCommitments}
+        className="card lift flex w-full items-center gap-3 p-4 text-start"
+      >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-primary-soft text-base">
+          🔁
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[13px] font-semibold">
+            {commitmentDue > 0 ? t("com.navCard") : t("com.navCardEmpty")}
+          </span>
+          <span className="block truncate text-[11.5px] text-muted">
+            {commitmentDue > 0
+              ? t("com.dueBreakdown", {
+                  subs: formatCurrency(commitmentTotals.subscriptions),
+                  inst: formatCurrency(commitmentTotals.installments),
+                })
+              : t("com.simSub")}
+          </span>
+        </span>
+        {commitmentDue > 0 && (
+          <span className="num shrink-0 text-[15px] font-bold">
+            {formatCurrency(commitmentDue)}
+          </span>
+        )}
+        <span className="shrink-0 text-muted">›</span>
+      </button>
 
       {/* Recent activity — condensed; the full list lives behind "Lihat semua". */}
       <section>

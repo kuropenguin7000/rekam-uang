@@ -27,6 +27,9 @@ import {
 } from "./members";
 import { todayISO } from "./format";
 import type {
+  BillingCycle,
+  Commitment,
+  CommitmentDraft,
   NewTransaction,
   Transaction,
   UserCategory,
@@ -37,6 +40,7 @@ import type {
  * Client-side Firestore data layer. Layout:
  *   users/{uid}                      — profile + budgets + category config
  *   users/{uid}/transactions/{id}    — one doc per transaction
+ *   users/{uid}/commitments/{id}     — one doc per subscription / instalment
  *
  * Access control lives in firestore.rules (each user can only touch their own
  * subtree). `date` stays a yyyy-mm-dd string (lexicographic ordering + all
@@ -50,6 +54,12 @@ export interface UserDoc {
   image: string | null;
   budget: number;
   dailyBudget: number;
+  /**
+   * Monthly take-home pay. Purely the denominator for "what's left after my
+   * fixed commitments" — it is NOT income tracking (that stays removed); no
+   * transaction is ever written from it. 0 means "not told us".
+   */
+  salary: number;
   /** Per-category monthly caps, e.g. { food: 1000000 }. */
   categoryBudgets: Record<string, number>;
   /** Custom categories + built-in rename/hide overrides. */
@@ -63,6 +73,11 @@ const DEFAULT_BUDGET = 5_000_000;
 const BATCH_LIMIT = 450;
 const MAX_CUSTOM_CATEGORIES = 20;
 const MAX_CUSTOM_MEMBERS = 20;
+/** Caps mirrored in firestore.rules; a household has tens, not thousands. */
+const MAX_TENOR = 600;
+const MAX_INTRO_PERIODS = 120;
+const MAX_SCHEDULE_ENTRIES = 120;
+const MONTH_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function userRef(uid: string) {
@@ -71,6 +86,10 @@ function userRef(uid: string) {
 
 function txCol(uid: string) {
   return collection(clientDb(), "users", uid, "transactions");
+}
+
+function commitmentCol(uid: string) {
+  return collection(clientDb(), "users", uid, "commitments");
 }
 
 function sanitizeCategoryBudgets(raw: unknown): Record<string, number> {
@@ -96,6 +115,10 @@ function userFromData(data: Record<string, unknown>): UserDoc {
     dailyBudget:
       typeof data.dailyBudget === "number" && data.dailyBudget >= 0
         ? Math.round(data.dailyBudget)
+        : 0,
+    salary:
+      typeof data.salary === "number" && data.salary >= 0
+        ? Math.round(data.salary)
         : 0,
     categoryBudgets: sanitizeCategoryBudgets(data.categoryBudgets),
     categoriesConfig: sanitizeCategoriesConfig(data.categoriesConfig),
@@ -142,6 +165,7 @@ export async function ensureUser(
       image: profile.image ?? null,
       budget: DEFAULT_BUDGET,
       dailyBudget: 0,
+      salary: 0,
       categoryBudgets: {},
       categoriesConfig: { custom: [], overrides: {} },
       membersConfig: { custom: [], overrides: {} },
@@ -192,6 +216,7 @@ export async function updateUser(
       UserDoc,
       | "budget"
       | "dailyBudget"
+      | "salary"
       | "categoryBudgets"
       | "categoriesConfig"
       | "membersConfig"
@@ -484,4 +509,162 @@ export async function deleteMember(uid: string, id: string): Promise<void> {
   // Transactions first, config last — same retry-safe ordering as categories.
   await reassignMember(uid, id);
   await updateUser(uid, { membersConfig: config });
+}
+
+// ---------------------------------------------------------------------------
+// Commitments — subscriptions and instalment plans
+// ---------------------------------------------------------------------------
+
+/**
+ * Coerce a stored payment plan into { "yyyy-mm": positiveInt }. The rules can
+ * only check that this is a map of a sane size — Firestore rules cannot walk a
+ * map's entries — so element validation lives here and nowhere else.
+ */
+function readSchedule(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!MONTH_RE.test(k)) continue;
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) continue;
+    out[k] = Math.round(v);
+    if (Object.keys(out).length >= MAX_SCHEDULE_ENTRIES) break;
+  }
+  return out;
+}
+
+function commitmentFromSnap(
+  snap: DocumentSnapshot | QueryDocumentSnapshot
+): Commitment {
+  const d = snap.data() ?? {};
+  const created = d.createdAt;
+  const kind = d.kind === "installment" ? "installment" : "subscription";
+  const num = (v: unknown) =>
+    typeof v === "number" && Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
+  return {
+    id: snap.id,
+    kind,
+    name: typeof d.name === "string" ? d.name : "",
+    amount: num(d.amount),
+    // An instalment is monthly by definition; never trust a stored value that
+    // would make a 12x plan bill once a year.
+    cycle: kind === "installment" || d.cycle !== "yearly" ? "monthly" : "yearly",
+    startDate: typeof d.startDate === "string" ? d.startDate : todayISO(),
+    // Zero is meaningful here (a free trial), so it survives `num`'s > 0 test
+    // only because introPeriods is what switches the promo on.
+    introAmount:
+      typeof d.introAmount === "number" && d.introAmount >= 0
+        ? Math.round(d.introAmount)
+        : 0,
+    introPeriods: kind === "installment" ? 0 : num(d.introPeriods),
+    tenor: kind === "installment" ? num(d.tenor) : 0,
+    schedule: kind === "installment" ? readSchedule(d.schedule) : {},
+    category: typeof d.category === "string" ? d.category : "other",
+    member: typeof d.member === "string" ? d.member : "",
+    note: typeof d.note === "string" ? d.note : "",
+    // Missing means active: docs written before a pause switch existed should
+    // still count toward the bill.
+    active: d.active !== false,
+    createdAt:
+      created instanceof Timestamp
+        ? created.toMillis()
+        : typeof created === "number"
+          ? created
+          : 0,
+  };
+}
+
+/**
+ * Clamp a draft into something firestore.rules will accept. Mirrors the rules
+ * exactly — when one changes the other has to follow, same contract as
+ * `sanitizeNewTransaction`.
+ */
+export function sanitizeCommitment(draft: CommitmentDraft): CommitmentDraft | null {
+  const name = draft.name.trim().slice(0, 60);
+  const amount = Math.round(Number(draft.amount));
+  if (!name || !Number.isFinite(amount) || amount <= 0) return null;
+  if (!DATE_RE.test(draft.startDate)) return null;
+
+  const kind = draft.kind === "installment" ? "installment" : "subscription";
+  const cycle: BillingCycle =
+    kind === "installment" ? "monthly" : draft.cycle === "yearly" ? "yearly" : "monthly";
+
+  const schedule = kind === "installment" ? readSchedule(draft.schedule) : {};
+  const scheduleSize = Object.keys(schedule).length;
+
+  // An instalment with no tenor would bill forever, which is the one thing an
+  // instalment must never do. A schedule sets its own length.
+  const tenor =
+    kind === "installment"
+      ? scheduleSize > 0
+        ? scheduleSize
+        : Math.min(MAX_TENOR, Math.max(1, Math.round(Number(draft.tenor) || 0)))
+      : 0;
+  if (kind === "installment" && tenor < 1) return null;
+
+  const introPeriods =
+    kind === "subscription"
+      ? Math.min(
+          MAX_INTRO_PERIODS,
+          Math.max(0, Math.round(Number(draft.introPeriods) || 0))
+        )
+      : 0;
+  const introAmount =
+    introPeriods > 0 ? Math.max(0, Math.round(Number(draft.introAmount) || 0)) : 0;
+
+  return {
+    kind,
+    name,
+    amount,
+    cycle,
+    // A scheduled plan starts on its own first month, whatever the picker said.
+    startDate:
+      scheduleSize > 0
+        ? Object.keys(schedule).sort()[0] + "-01"
+        : draft.startDate,
+    introAmount,
+    introPeriods,
+    tenor,
+    schedule,
+    category: draft.category || "other",
+    member: draft.member || "",
+    note: draft.note.slice(0, 280),
+    active: draft.active !== false,
+  };
+}
+
+export async function listCommitments(uid: string): Promise<Commitment[]> {
+  // No orderBy: a household has tens of these, so sorting client-side keeps
+  // this off the composite-index list entirely.
+  const snap = await getDocs(commitmentCol(uid));
+  return snap.docs.map(commitmentFromSnap);
+}
+
+export async function createCommitment(
+  uid: string,
+  draft: CommitmentDraft
+): Promise<Commitment | null> {
+  const clean = sanitizeCommitment(draft);
+  if (!clean) return null;
+  const ref = doc(commitmentCol(uid));
+  const createdAt = Timestamp.now();
+  await setDoc(ref, { ...clean, createdAt });
+  return { id: ref.id, ...clean, createdAt: createdAt.toMillis() };
+}
+
+export async function updateCommitment(
+  uid: string,
+  id: string,
+  draft: CommitmentDraft
+): Promise<Commitment | null> {
+  const clean = sanitizeCommitment(draft);
+  if (!clean) return null;
+  const ref = doc(commitmentCol(uid), id);
+  // Whole-document update: the kind switch rewrites tenor/intro/cycle together,
+  // and a field-by-field patch would strand values from the previous kind.
+  await updateDoc(ref, { ...clean });
+  return commitmentFromSnap(await getDoc(ref));
+}
+
+export async function deleteCommitment(uid: string, id: string): Promise<void> {
+  await deleteDoc(doc(commitmentCol(uid), id));
 }

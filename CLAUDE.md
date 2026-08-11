@@ -66,10 +66,19 @@ npm run dev                 # http://localhost:3000
 
 ## Data model ([src/lib/firestore.ts](src/lib/firestore.ts) — all data access, browser SDK)
 - `users/{uid}`: email, name, image, budget (default 5,000,000), dailyBudget
-  (0 = auto = budget/30), **categoryBudgets** (native map {cat: amount}),
+  (0 = auto = budget/30), **salary** (monthly take-home, 0 = unset — the
+  denominator for "left after commitments"; **not** income tracking, nothing
+  writes a transaction from it), **categoryBudgets** (native map {cat: amount}),
   **categoriesConfig** (native map: custom categories + built-in
   rename/icon/hide overrides), **membersConfig** (same shape, for family
   members), createdAt.
+- `users/{uid}/commitments/{autoId}`: **subscriptions + instalment plans** —
+  kind ("subscription"|"installment"), name, amount (regular price per cycle,
+  or the monthly payment), cycle, startDate (yyyy-mm-dd), introAmount +
+  introPeriods (promo), tenor (instalments), **schedule** (native map
+  `{"yyyy-mm": amount}` — a custom payment plan), category, member, note,
+  active, createdAt. **No composite index** — `listCommitments` deliberately
+  has no `orderBy` and sorts client-side, since a household has tens of these.
 - `users/{uid}/transactions/{autoId}`: amount, category (string id — built-in
   or custom `c_*`), **member** (built-in id or custom `m_*`; "" = untagged),
   type (always "expense" — see below), merchant, note,
@@ -191,6 +200,56 @@ npm run dev                 # http://localhost:3000
   **re-iconable** + hideable, plus custom `m_*`; managed in
   [MemberManager.tsx](src/components/MemberManager.tsx) on the Akun tab).
   Member chips scope the transaction list; Statistik shows the split.
+- **Komitmen** ([Commitments.tsx](src/components/Commitments.tsx), a Beranda
+  sub-view like Transactions — the bottom bar is a fixed five slots): recurring
+  subscriptions and instalment plans, with the answer to "how much of next
+  month is already spoken for?".
+  - Maths is pure folds in [commitments.ts](src/lib/commitments.ts), done on
+    the **yyyy-mm prefix as integers, never `Date`** — same reason transaction
+    dates are strings.
+  - **`chargeInMonth` vs `normalizedMonthly` are different questions and both
+    are needed**: a yearly plan bills once and is zero the other eleven months
+    (actual cash), but costs price/12 a month (budget comparison).
+  - **`introPeriods` is the promo switch, never `introAmount`** — a free trial
+    is `introAmount: 0` with `introPeriods > 0`. It counts CYCLES: 3 means
+    three months on a monthly plan, three years on a yearly one.
+  - Instalments must terminate (`tenor >= 1`, enforced in the rules too); they
+    stop billing on their own once `tenor` payments have passed.
+  - **A non-empty `schedule` outranks `amount`/`tenor` entirely** (they survive
+    as display fallbacks: first payment, payment count). Real invoices step the
+    amount down over the year *and* skip months — the reference case is a
+    school fee of 11 angsuran totalling Rp 27.100.000 where Angsuran I is July
+    and Angsuran II is September, with **no August**. Consequences: an
+    instalment's number is its **position in the plan**, not months elapsed
+    (September is Angsuran II, not III), and `nextChargeMonth` must look the
+    schedule up rather than scan forward.
+  - Firestore rules **cannot iterate a map's entries**, so they check only that
+    `schedule` is a map of sane size; per-entry validation lives in
+    `readSchedule()` in firestore.ts and nowhere else.
+  - **Commitments are not compared against the monthly budget.** That was
+    removed deliberately: the budget covers day-to-day spending, and netting
+    fixed obligations off it made both numbers mean something muddier. They are
+    compared against **salary** instead (`salary − due`, shown on the Komitmen
+    screen and in the simulator), which is the number that actually has to
+    cover them.
+  - The outlook is [OutlookChart.tsx](src/components/OutlookChart.tsx), shared
+    by the screen and the simulator — it was duplicated markup before, which is
+    exactly how the two would have drifted. It pages ±36 months with ‹ ›, and
+    its bar labels go through `groupDigits` ("5.487rb", not "5487rb").
+  - **Every bar opens a breakdown**: `MonthDetail` lists what bills that month,
+    biggest first, so the reason for a spike is the top row. Its rows are
+    derived from `chargeInMonth` — the *same* function the bar height uses — so
+    the popup can never contradict the chart it came from. Simulator drafts are
+    tagged (they are the entries with no `id`).
+  - The **simulator** ([CommitmentSimulator.tsx](src/components/CommitmentSimulator.tsx))
+    holds unsaved `CommitmentDraft`s and runs `totalsForMonth` over
+    `[...saved, ...drafts]` — the *same* fold as the real screen, so there is
+    no parallel estimate formula that can drift. `CommitmentForm` returns a
+    plain draft precisely so both callers share it.
+  - **Nothing here writes a transaction.** Static hosting has no cron, and
+    materialising charges client-side would double-count across devices — so
+    this is a schedule of what *will* be owed, beside the ledger of what *was*
+    spent. Marking a commitment as paid is not implemented.
 - **Insights**: [InsightsPanel.tsx](src/components/InsightsPanel.tsx) computes
   `generateInsights(transactions, budget, locale)` ([src/lib/insights.ts](src/lib/insights.ts))
   **client-side in a useMemo** — pure rules (spikes, recurring charges, small

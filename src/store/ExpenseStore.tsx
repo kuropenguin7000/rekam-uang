@@ -13,6 +13,8 @@ import { clientAuth } from "@/lib/firebaseClient";
 import { markSignedIn } from "@/lib/signedInHint";
 import * as db from "@/lib/firestore";
 import type {
+  Commitment,
+  CommitmentDraft,
   NewTransaction,
   Transaction,
   UserCategory,
@@ -28,6 +30,8 @@ export interface MeUser {
   image: string | null;
   budget: number;
   dailyBudget: number;
+  /** Monthly take-home pay; the denominator for "left after commitments". */
+  salary: number;
   /** Per-category monthly caps, e.g. { food: 1000000 }. */
   categoryBudgets: Record<string, number>;
   /** Effective category list (built-ins + overrides + custom). */
@@ -40,6 +44,11 @@ interface AppState {
   ready: boolean;
   user: MeUser | null;
   transactions: Transaction[];
+  /** Subscriptions + instalment plans; see lib/commitments.ts for the maths. */
+  commitments: Commitment[];
+  addCommitment: (draft: CommitmentDraft) => Promise<void>;
+  updateCommitment: (id: string, draft: CommitmentDraft) => Promise<void>;
+  deleteCommitment: (id: string) => Promise<void>;
   budget: number;
   /** effective daily budget threshold (explicit setting, or budget/30) */
   dailyBudget: number;
@@ -70,6 +79,8 @@ interface AppState {
   deleteTransaction: (id: string) => Promise<void>;
   setBudget: (value: number) => Promise<void>;
   setDailyBudget: (value: number) => Promise<void>;
+  salary: number;
+  setSalary: (value: number) => Promise<void>;
   setCategoryBudget: (category: string, amount: number) => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -84,6 +95,7 @@ function toMeUser(uid: string, doc: db.UserDoc): MeUser {
     image: doc.image,
     budget: doc.budget,
     dailyBudget: doc.dailyBudget,
+    salary: doc.salary,
     categoryBudgets: doc.categoryBudgets,
     categories: effectiveCategories(doc.categoriesConfig),
     members: effectiveMembers(doc.membersConfig),
@@ -98,21 +110,26 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [user, setUser] = useState<MeUser | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [budget, setBudgetState] = useState(5_000_000);
   const [dailyBudgetState, setDailyBudgetState] = useState(0);
+  const [salary, setSalaryState] = useState(0);
 
   const loadFor = useCallback(async (uid: string) => {
-    const [doc, txs] = await Promise.all([
+    const [doc, txs, coms] = await Promise.all([
       db.getUserDoc(uid),
       db.listTransactions(uid),
+      db.listCommitments(uid),
     ]);
     if (doc) {
       const me = toMeUser(uid, doc);
       setUser(me);
       setBudgetState(me.budget);
       setDailyBudgetState(me.dailyBudget ?? 0);
+      setSalaryState(me.salary ?? 0);
     }
     setTransactions(txs);
+    setCommitments(coms);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -141,7 +158,12 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
         setUser(me);
         setBudgetState(me.budget);
         setDailyBudgetState(me.dailyBudget ?? 0);
-        setTransactions(await db.listTransactions(fbUser.uid));
+        const [txs, coms] = await Promise.all([
+          db.listTransactions(fbUser.uid),
+          db.listCommitments(fbUser.uid),
+        ]);
+        setTransactions(txs);
+        setCommitments(coms);
       } catch (err) {
         console.error("initial load failed", err);
       }
@@ -202,6 +224,33 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const addCommitment = useCallback(
+    async (draft: CommitmentDraft) => {
+      if (!user) return;
+      const created = await db.createCommitment(user.id, draft);
+      if (created) setCommitments((prev) => [...prev, created]);
+    },
+    [user]
+  );
+
+  const updateCommitmentFn = useCallback(
+    async (id: string, draft: CommitmentDraft) => {
+      if (!user) return;
+      const next = await db.updateCommitment(user.id, id, draft);
+      if (next) setCommitments((prev) => prev.map((c) => (c.id === id ? next : c)));
+    },
+    [user]
+  );
+
+  const deleteCommitmentFn = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      setCommitments((prev) => prev.filter((c) => c.id !== id));
+      await db.deleteCommitment(user.id, id);
+    },
+    [user]
+  );
+
   const setBudget = useCallback(
     async (value: number) => {
       if (!user) return;
@@ -220,6 +269,17 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       setDailyBudgetState(v);
       setUser((u) => (u ? { ...u, dailyBudget: v } : u));
       await db.updateUser(user.id, { dailyBudget: v });
+    },
+    [user]
+  );
+
+  const setSalary = useCallback(
+    async (value: number) => {
+      if (!user) return;
+      const v = Math.max(0, Math.round(value));
+      setSalaryState(v);
+      setUser((u) => (u ? { ...u, salary: v } : u));
+      await db.updateUser(user.id, { salary: v });
     },
     [user]
   );
@@ -311,6 +371,10 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       ready,
       user,
       transactions,
+      commitments,
+      addCommitment,
+      updateCommitment: updateCommitmentFn,
+      deleteCommitment: deleteCommitmentFn,
       budget,
       dailyBudget,
       categoryBudgets,
@@ -323,6 +387,8 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       deleteTransaction,
       setBudget,
       setDailyBudget,
+      salary,
+      setSalary,
       setCategoryBudget,
       addCategory,
       updateCategory,
@@ -336,6 +402,10 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       ready,
       user,
       transactions,
+      commitments,
+      addCommitment,
+      updateCommitmentFn,
+      deleteCommitmentFn,
       budget,
       dailyBudget,
       categoryBudgets,
@@ -348,6 +418,8 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       deleteTransaction,
       setBudget,
       setDailyBudget,
+      salary,
+      setSalary,
       setCategoryBudget,
       addCategory,
       updateCategory,

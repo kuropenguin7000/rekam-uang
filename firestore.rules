@@ -19,6 +19,10 @@ service cloud.firestore {
           && (d.image == null || d.image is string)
           && d.budget is int && d.budget >= 0
           && d.dailyBudget is int && d.dailyBudget >= 0
+          // Optional for the same reason as membersConfig below: docs created
+          // before salary existed have no such field, and an update's
+          // request.resource.data is the merged doc.
+          && (!('salary' in d) || (d.salary is int && d.salary >= 0))
           && d.categoryBudgets is map
           && d.categoriesConfig is map
           // Optional: user docs created before members existed have no such
@@ -50,6 +54,47 @@ service cloud.firestore {
         allow read, delete: if isOwner(uid);
         allow create: if isOwner(uid) && validTxDoc();
         allow update: if isOwner(uid) && validTxDoc()
+          && request.resource.data.createdAt == resource.data.createdAt;
+      }
+
+      // Subscriptions and instalment plans. Kept in their own collection
+      // rather than as transactions: nothing here has happened yet, it is a
+      // schedule of what will be owed.
+      match /commitments/{commitmentId} {
+
+        function validCommitmentDoc() {
+          let d = request.resource.data;
+          return d.kind in ['subscription', 'installment']
+            && d.name is string && d.name.size() > 0 && d.name.size() <= 60
+            && d.amount is int && d.amount > 0
+            && d.cycle in ['monthly', 'yearly']
+            // An instalment must be monthly and must terminate: an open-ended
+            // one would keep inflating every future month forever.
+            && (d.kind != 'installment' || (d.cycle == 'monthly'
+                 && d.tenor is int && d.tenor >= 1 && d.tenor <= 600))
+            // Subscriptions never carry a tenor.
+            && (d.kind != 'subscription' || d.tenor == 0)
+            // Custom payment plan, keyed yyyy-mm. Rules cannot walk a map's
+            // entries, so this checks shape and size only — the per-entry
+            // validation lives in readSchedule() in firestore.ts.
+            && d.schedule is map && d.schedule.size() <= 120
+            && (d.kind != 'subscription' || d.schedule.size() == 0)
+            // Promo: introPeriods is the switch, so introAmount may be 0
+            // (a free trial) but never negative.
+            && d.introPeriods is int && d.introPeriods >= 0 && d.introPeriods <= 120
+            && d.introAmount is int && d.introAmount >= 0
+            && (d.kind != 'installment' || d.introPeriods == 0)
+            && d.category is string && d.category.size() <= 40
+            && d.member is string && d.member.size() <= 40
+            && d.note is string && d.note.size() <= 280
+            && d.startDate is string && d.startDate.matches('\\d{4}-\\d{2}-\\d{2}')
+            && d.active is bool
+            && d.createdAt is timestamp;
+        }
+
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && validCommitmentDoc();
+        allow update: if isOwner(uid) && validCommitmentDoc()
           && request.resource.data.createdAt == resource.data.createdAt;
       }
     }

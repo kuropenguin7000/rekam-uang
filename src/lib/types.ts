@@ -80,6 +80,60 @@ export interface NewTransaction {
   date: string;
 }
 
+/**
+ * Money already committed for future months. One shape covers both kinds
+ * because they answer the same question ("what is next month already spoken
+ * for?"); `kind` selects which fields matter.
+ *
+ * - subscription: bills forever on `cycle` until `active` goes false.
+ *   `introAmount`/`introPeriods` express a promo — "Rp 15rb for the first 3
+ *   months", "half price the first year". `introPeriods` counts CYCLES.
+ * - installment: bills monthly exactly `tenor` times from `startDate`, then
+ *   stops on its own. `cycle` is always "monthly" and `introPeriods` is 0.
+ */
+export type CommitmentKind = "subscription" | "installment";
+
+export type BillingCycle = "monthly" | "yearly";
+
+export interface CommitmentDraft {
+  kind: CommitmentKind;
+  /** Display name, e.g. "YouTube Premium" or "iPhone 17 — Shopee PayLater". */
+  name: string;
+  /** The regular charge per cycle; for an instalment, the monthly payment. */
+  amount: number;
+  cycle: BillingCycle;
+  /** yyyy-mm-dd of the first charge. */
+  startDate: string;
+  /** Promo price. Only meaningful while `introPeriods` > 0; 0 = free trial. */
+  introAmount: number;
+  /** Number of cycles charged at `introAmount`. 0 means no promo at all. */
+  introPeriods: number;
+  /** Instalment only: total number of monthly payments. 0 for subscriptions. */
+  tenor: number;
+  /**
+   * Instalment only. A per-month payment plan keyed yyyy-mm, for the schedules
+   * real invoices actually use: amounts that step down over the year, and
+   * months that are skipped entirely. When this has any entry it is
+   * authoritative and `amount`/`tenor` become display fallbacks only.
+   *
+   * A map rather than a list so a month can't appear twice and lookup is a
+   * key hit; yyyy-mm keys sort lexicographically, so order is recoverable.
+   */
+  schedule: Record<string, number>;
+  /** Reuses the expense categories, so commitments sit in the same taxonomy. */
+  category: string;
+  /** Reuses the family members; "" = untagged. */
+  member: string;
+  note: string;
+  /** False = paused/cancelled: kept for history but excluded from every total. */
+  active: boolean;
+}
+
+export interface Commitment extends CommitmentDraft {
+  id: string;
+  createdAt: number;
+}
+
 export type Range = "week" | "month" | "all";
 
 export interface Insight {
