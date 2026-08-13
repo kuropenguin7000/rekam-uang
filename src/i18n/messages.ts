@@ -9,6 +9,7 @@ const id = {
   "nav.insights": "Wawasan",
 
   "land.navFeatures": "Fitur",
+  "land.navDemo": "Coba",
   "land.navHow": "Cara kerja",
   "land.signIn": "Masuk",
   "land.openApp": "Buka aplikasi",
@@ -22,7 +23,7 @@ const id = {
   "land.heroBody":
     "Catat pengeluaran harian dalam hitungan detik, lalu lihat polanya dalam grafik yang mudah dibaca. Dibuat untuk keluarga Indonesia.",
   "land.ctaPrimary": "Mulai gratis",
-  "land.ctaSecondary": "Lihat fitur",
+  "land.ctaSecondary": "Coba langsung",
   "land.ctaNote": "Masuk dengan akun Google. Tanpa kartu kredit.",
   "land.mockUsed": "Terpakai {used} dari {budget}",
   "land.mockToday": "Hari ini",
@@ -53,6 +54,16 @@ const id = {
   "land.f6Title": "Anggaran per kategori",
   "land.f6Body":
     "Pasang batas bulanan, harian, dan batas khusus tiap kategori. Pemberitahuan muncul sebelum kebablasan.",
+  "land.f7Title": "Langganan & cicilan",
+  "land.f7Body":
+    "Catat YouTube Premium, Claude, cicilan Shopee PayLater — lengkap dengan harga promo dan jadwal angsuran yang nominalnya berubah. Lihat berapa yang sudah terpakai bulan depan, dan simulasikan sebelum menambah.",
+
+  "land.eyebrowDemo": "Coba dulu",
+  "land.demoTitle": "Mainkan aplikasinya, tanpa daftar",
+  "land.demoBody":
+    "Ini aplikasi yang sebenarnya, bukan gambar. Catat pengeluaran, saring, ubah, buka statistik, dan simulasikan langganan baru — semua dengan data contoh.",
+  "land.demoFootnote":
+    "Semua yang kamu lakukan di sini hanya tersimpan di tab ini dan hilang saat halaman dimuat ulang. Tidak ada yang dikirim ke server, dan tidak ada kaitannya dengan data akun siapa pun.",
 
   "land.howTitle": "Tiga langkah, selesai",
   "land.how1Title": "Masuk dengan Google",
@@ -258,6 +269,10 @@ const id = {
   "mem.deleteConfirm":
     'Hapus anggota "{name}"? Pengeluarannya dipindahkan ke Bersama.',
 
+  "demo.badge": "Mode demo",
+  "demo.local": "Data contoh · tidak disimpan",
+  "demo.full": "Batas demo {n} transaksi tercapai. Hapus satu untuk menambah lagi.",
+
   "com.title": "Komitmen",
   "com.navCard": "Komitmen bulan depan",
   "com.navCardEmpty": "Catat langganan & cicilan",
@@ -356,6 +371,7 @@ const en: Dict = {
   "nav.insights": "Insights",
 
   "land.navFeatures": "Features",
+  "land.navDemo": "Try it",
   "land.navHow": "How it works",
   "land.signIn": "Sign in",
   "land.openApp": "Open app",
@@ -369,7 +385,7 @@ const en: Dict = {
   "land.heroBody":
     "Log daily spending in seconds, then see the pattern in charts that are actually readable. Built for Indonesian households.",
   "land.ctaPrimary": "Start free",
-  "land.ctaSecondary": "See features",
+  "land.ctaSecondary": "Try it now",
   "land.ctaNote": "Sign in with Google. No credit card.",
   "land.mockUsed": "{used} of {budget} used",
   "land.mockToday": "Today",
@@ -400,6 +416,16 @@ const en: Dict = {
   "land.f6Title": "Per-category budgets",
   "land.f6Body":
     "Set a monthly cap, a daily cap, and a separate limit per category. Alerts arrive before you overshoot.",
+  "land.f7Title": "Subscriptions & instalments",
+  "land.f7Body":
+    "Track YouTube Premium, Claude, a Shopee PayLater plan — intro pricing and stepped payment schedules included. See how much of next month is already spoken for, and simulate before you add another.",
+
+  "land.eyebrowDemo": "Try it first",
+  "land.demoTitle": "Play with the app, no signup",
+  "land.demoBody":
+    "This is the real app, not a picture. Log an expense, filter, edit, open the statistics, and simulate a new subscription — all on sample data.",
+  "land.demoFootnote":
+    "Everything you do here stays in this browser tab and disappears when the page reloads. Nothing is sent to a server, and none of it touches anyone's account.",
 
   "land.howTitle": "Three steps and you're done",
   "land.how1Title": "Sign in with Google",
@@ -604,6 +630,10 @@ const en: Dict = {
   "mem.delete": "Delete",
   "mem.deleteConfirm":
     'Delete member "{name}"? Their expenses move to Shared.',
+
+  "demo.badge": "Demo mode",
+  "demo.local": "Sample data · never saved",
+  "demo.full": "Demo limit of {n} transactions reached. Delete one to add another.",
 
   "com.title": "Commitments",
   "com.navCard": "Due next month",

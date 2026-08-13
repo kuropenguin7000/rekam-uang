@@ -50,7 +50,7 @@ export function Beranda({
   onSeeAll: (period: HomePeriod, month: string) => void;
   onOpenCommitments: () => void;
 }) {
-  const { transactions, budget, user, categoryMeta, memberMeta, commitments } =
+  const { transactions, budget, user, categoryMeta, memberMeta, commitments, demo } =
     useExpenses();
   const { t } = useI18n();
   const [month, setMonth] = useState(() => startOfMonthISO(todayISO()));
@@ -60,16 +60,18 @@ export function Beranda({
   // Restore the preferred layout after hydration, never as a state initializer
   // — reading localStorage during render would desync the prerendered HTML.
   useEffect(() => {
+    if (demo) return; // the sandbox neither reads nor writes shared storage
     try {
       const saved = localStorage.getItem(STYLE_KEY);
       if (saved === "ring" || saved === "dense") setStyle(saved);
     } catch {
       /* storage unavailable — keep the default */
     }
-  }, []);
+  }, [demo]);
 
   function chooseStyle(next: HomeStyle) {
     setStyle(next);
+    if (demo) return; // toggling in the demo must not rewrite the real setting
     try {
       localStorage.setItem(STYLE_KEY, next);
     } catch {
@@ -109,17 +111,32 @@ export function Beranda({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <StyleToggle value={style} onChange={chooseStyle} />
-          <div className="sm:hidden">
-            <NotificationBell />
-          </div>
-          <Link href="/account" aria-label={t("account.aria")} className="sm:hidden">
+          {/* The demo is a sandbox on a public page: the bell writes to the
+              shared notification log in localStorage, and the avatar links out
+              of the sandbox into a guarded route. Both are inert there. */}
+          {!demo && (
+            <>
+              <div className="sm:hidden">
+                <NotificationBell />
+              </div>
+              <Link href="/account" aria-label={t("account.aria")} className="sm:hidden">
+                <Avatar
+                  name={user?.name}
+                  email={user?.email}
+                  image={user?.image}
+                  className="h-9 w-9 text-sm"
+                />
+              </Link>
+            </>
+          )}
+          {demo && (
             <Avatar
               name={user?.name}
               email={user?.email}
               image={user?.image}
-              className="h-9 w-9 text-sm"
+              className="h-9 w-9 text-sm sm:hidden"
             />
-          </Link>
+          )}
         </div>
       </header>
 

@@ -40,8 +40,14 @@ export interface MeUser {
   members: UserMember[];
 }
 
-interface AppState {
+export interface AppState {
   ready: boolean;
+  /**
+   * True only inside the public demo on the landing page. Components use it to
+   * suppress anything that would leave the sandbox: real navigation, and the
+   * notification log (which is shared localStorage the demo must not touch).
+   */
+  demo: boolean;
   user: MeUser | null;
   transactions: Transaction[];
   /** Subscriptions + instalment plans; see lib/commitments.ts for the maths. */
@@ -85,7 +91,12 @@ interface AppState {
   refresh: () => Promise<void>;
 }
 
-const AppContext = createContext<AppState | null>(null);
+/**
+ * Exported so the landing page's in-memory demo can supply the same shape and
+ * drive the *real* screens. One implementation of Beranda/Statistik/Komitmen,
+ * two data sources — the demo can't drift from the product it advertises.
+ */
+export const AppContext = createContext<AppState | null>(null);
 
 function toMeUser(uid: string, doc: db.UserDoc): MeUser {
   return {
@@ -369,6 +380,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppState>(
     () => ({
       ready,
+      demo: false,
       user,
       transactions,
       commitments,

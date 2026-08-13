@@ -135,7 +135,31 @@ npm run dev                 # http://localhost:3000
   (`land.*` keys) and built only from existing utilities (`.card`, `.hero-grad`,
   `.grad-primary`, `.grad-chip`, `.num`, `.lift`) so it cannot drift from the
   app's look. The hero mock is a still of the real Beranda card. **It must not
-  claim AI** — the insights are rule-based on purpose. Sections fade up via a
+  claim AI** — the insights are rule-based on purpose.
+- **Playable demo** ([DemoApp.tsx](src/components/DemoApp.tsx) +
+  [DemoStore.tsx](src/store/DemoStore.tsx), section `#demo`): mounts the *real*
+  Beranda/Statistik/Komitmen/AddSheet against an in-memory provider, so the
+  landing page demos the actual product instead of a mock that can drift.
+  - `ExpenseStore` exports `AppContext` and `AppState` for this; `DemoProvider`
+    supplies the same shape from React state. `AppState.demo` is the flag real
+    components read to suppress anything that leaves the sandbox.
+  - **The security design is that the demo has no database connection at all.**
+    It imports nothing from `firebase/*` or `lib/firestore`, so an anonymous
+    visitor cannot reach Firestore. That closes the only attack that matters:
+    the app is on the free Spark tier with a hard daily quota, so a demo that
+    wrote to Firestore would let anyone exhaust it and take the real app down.
+    Firebase init is lazy (`initializeApp` runs only inside `clientAuth()`/
+    `clientDb()`), so importing the store is inert.
+  - Everything else is bounding what a visitor can do to their own tab:
+    [demoGuards.ts](src/lib/demoGuards.ts) is the whole input surface — row
+    caps, positive-integer clamping, string truncation, colour and month-key
+    validation. **Keep new demo inputs going through it.**
+  - The demo writes **no** storage: not Firestore, not localStorage. Beranda's
+    layout toggle and `NotificationBell` are both suppressed under `demo`
+    because they share real localStorage keys. The Akun tab is absent because
+    it owns sign-out.
+  - Numbers are clamped rather than just rejected because absurd values reach
+    the formatters: `1e308` would otherwise render as a screenful of digits. Sections fade up via a
   `Reveal` wrapper (IntersectionObserver + `.reveal`/`.is-visible`). Because
   `.reveal` starts at `opacity: 0`, **every path that skips the class is a
   permanently blank section** — hence three fail-opens: a `<noscript>` style

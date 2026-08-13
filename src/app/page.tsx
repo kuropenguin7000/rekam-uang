@@ -16,6 +16,7 @@ import {
   UserIcon,
 } from "@/components/icons";
 import { BrandMark } from "@/components/Logo";
+import { DemoApp } from "@/components/DemoApp";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useI18n } from "@/components/I18nProvider";
 import { markSignedIn } from "@/lib/signedInHint";
@@ -99,7 +100,7 @@ export default function LandingPage() {
                     {heroCta}
                   </Link>
                   <a
-                    href="#features"
+                    href="#demo"
                     className="card px-6 py-3.5 text-sm font-semibold text-muted transition hover:text-foreground"
                   >
                     {t("land.ctaSecondary")}
@@ -176,6 +177,48 @@ export default function LandingPage() {
               </div>
             </div>
           </Reveal>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        {/* Playable demo — the real screens, on throwaway in-memory data      */}
+        {/* ---------------------------------------------------------------- */}
+        <section
+          id="demo"
+          className="scroll-anchor border-y border-border bg-surface/40 py-16 sm:py-24"
+        >
+          <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">
+            <Reveal>
+              <Eyebrow>{t("land.eyebrowDemo")}</Eyebrow>
+              <div className="mt-3 max-w-xl">
+                <h2 className="text-[27px] font-bold leading-tight tracking-tight sm:text-[36px]">
+                  {t("land.demoTitle")}
+                </h2>
+                <p className="mt-3.5 text-[15px] leading-relaxed text-muted">
+                  {t("land.demoBody")}
+                </p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={80}>
+              <div className="mt-9">
+                <DemoApp />
+              </div>
+            </Reveal>
+
+            <Reveal delay={140}>
+              <p className="mx-auto mt-6 max-w-md text-center text-[12.5px] leading-relaxed text-muted">
+                {t("land.demoFootnote")}
+              </p>
+              <div className="mt-4 flex justify-center">
+                <Link
+                  href={ctaHref}
+                  className="grad-primary rounded-[14px] px-6 py-3 text-sm font-semibold transition"
+                >
+                  {heroCta}
+                </Link>
+              </div>
+            </Reveal>
+          </div>
         </section>
 
         {/* ---------------------------------------------------------------- */}
@@ -390,6 +433,12 @@ function SiteHeader({ ctaHref, ctaLabel }: { ctaHref: string; ctaLabel: string }
         </Link>
 
         <nav className="ms-auto hidden items-center gap-1 sm:flex">
+          <a
+            href="#demo"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-foreground"
+          >
+            {t("land.navDemo")}
+          </a>
           <a
             href="#features"
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:text-foreground"
@@ -697,6 +746,59 @@ function MembersVisual() {
 }
 
 /** Per-category spend bars — the Beranda bars, scaled down. */
+/**
+ * Six months of committed spending, with the step where an intro price lapses.
+ * The shape is the point: a single "per month" figure hides that cliff.
+ */
+const OUTLOOK: [string, number][] = [
+  ["Sep", 46],
+  ["Okt", 46],
+  ["Nov", 72],
+  ["Des", 72],
+  ["Jan", 100],
+  ["Feb", 58],
+];
+
+function OutlookVisual() {
+  return (
+    <div className="flex h-[86px] items-end gap-1.5">
+      {OUTLOOK.map(([m, h], i) => (
+        <div key={m} className="flex flex-1 flex-col items-center gap-1">
+          <div
+            className="w-full rounded-t-[5px]"
+            style={{
+              height: `${h}%`,
+              background: i === 4 ? "#14b8a6" : "rgb(20 184 166 / 0.45)",
+            }}
+          />
+          <span className="text-[9px] text-muted">{m}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Recurring-charge glyph for the commitments card. */
+function RepeatIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M17 2l4 4-4 4" />
+      <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+      <path d="M7 22l-4-4 4-4" />
+      <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
 function BarsVisual() {
   return (
     <div className="grid gap-2.5 sm:grid-cols-2">
@@ -878,8 +980,16 @@ const FEATURES: {
     icon: <DashboardIcon className="h-5 w-5" />,
     title: "land.f6Title",
     body: "land.f6Body",
-    span: "sm:col-span-2 lg:col-span-6",
+    span: "sm:col-span-2 lg:col-span-3",
     visual: <BarsVisual />,
+  },
+  {
+    color: "#14b8a6",
+    icon: <RepeatIcon className="h-5 w-5" />,
+    title: "land.f7Title",
+    body: "land.f7Body",
+    span: "sm:col-span-2 lg:col-span-3",
+    visual: <OutlookVisual />,
   },
 ];
 
