@@ -345,6 +345,17 @@ config); optional `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1`.
   does not reliably clip absolutely-positioned children of a rounded
   overflow-hidden box** — 4px escaped and scrolled the whole page sideways on
   iOS only. Keep decorative elements inside their parent's box.
+- **Never lock dialog scroll with `body { overflow: hidden }`** — use
+  [scrollLock.ts](src/lib/scrollLock.ts). Because `html, body` are `height:
+  100%` and `html` carries `overflow-x: clip`, the root's overflow is not
+  `visible`, so body's overflow no longer propagates to the viewport and body
+  becomes its own scroll container. Hiding overflow on a full-height element
+  collapses the document's scroll range to one screen and the browser clamps
+  `scrollY` to 0 — every popup jumped the reader back to the top of the page.
+  `lockBodyScroll()` pins the body at `-scrollY` instead and restores after.
+  It is **reference counted, and that is required**: dialogs stack (simulator →
+  form, simulator → month detail), and once the body is fixed `window.scrollY`
+  reads 0, so a second naive lock would save 0 and recreate the very bug.
 - **Declare `backdrop-filter` unprefixed only.** Tailwind v4 runs Lightning CSS,
   which adds prefixes per target; hand-writing `-webkit-` alongside it made the
   pair collapse to the prefixed one and silently dropped the effect in Firefox.

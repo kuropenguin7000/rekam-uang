@@ -11,6 +11,7 @@ import { DEFAULT_MEMBER } from "@/lib/members";
 import { groupDigits, todayISO } from "@/lib/format";
 import { monthLabel } from "@/lib/period";
 import { monthKey, shiftMonth } from "@/lib/commitments";
+import { lockBodyScroll } from "@/lib/scrollLock";
 import type { CommitmentDraft, CommitmentKind } from "@/lib/types";
 
 interface Row {
@@ -126,11 +127,10 @@ export function CommitmentForm({
       if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const release = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      release();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

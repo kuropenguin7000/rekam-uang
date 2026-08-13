@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { lockBodyScroll } from "@/lib/scrollLock";
 import { useExpenses } from "@/store/ExpenseStore";
 import { useI18n } from "./I18nProvider";
 import { CommitmentForm } from "./CommitmentForm";
@@ -28,6 +29,19 @@ export function CommitmentSimulator({ onClose }: { onClose: () => void }) {
   const [saving, setSaving] = useState(false);
 
   const nextMonth = useMemo(() => nextMonthOf(todayISO()), []);
+
+  // A full-screen sheet: without this the page behind scrolls under it.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const release = lockBodyScroll();
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      release();
+    };
+  }, [onClose]);
 
   const before = useMemo(
     () => totalsForMonth(commitments, nextMonth),

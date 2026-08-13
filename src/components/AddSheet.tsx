@@ -9,6 +9,7 @@ import { categoryDisplayName } from "@/lib/categoryName";
 import { memberDisplayName } from "@/lib/memberName";
 import { DEFAULT_MEMBER } from "@/lib/members";
 import { groupDigits, todayISO } from "@/lib/format";
+import { lockBodyScroll } from "@/lib/scrollLock";
 
 /** Quick-amount chips from the mockup, in rupiah. */
 const QUICK = [25_000, 50_000, 100_000, 250_000];
@@ -109,11 +110,10 @@ export function AddSheet({ onClose }: { onClose: () => void }) {
       if (e.key === "Escape") requestClose();
     };
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const release = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      release();
     };
   }, [requestClose]);
 
