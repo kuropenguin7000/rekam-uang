@@ -14,7 +14,7 @@ import { memberDisplayName } from "@/lib/memberName";
 import {
   formatCurrency,
   formatCompact,
-  formatDayMonth,
+  formatListDate,
   startOfMonthISO,
   todayISO,
 } from "@/lib/format";
@@ -335,7 +335,7 @@ export function Beranda({
                     </p>
                     <p className="truncate text-[11px] text-muted">
                       {mem ? `${mem.icon} ${memberDisplayName(mem, t)} · ` : ""}
-                      {formatDayMonth(tx.date)}
+                      {formatListDate(tx.date)}
                     </p>
                   </div>
                   <span className="num shrink-0 text-[12.5px] font-semibold">

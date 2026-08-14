@@ -50,6 +50,17 @@ export function formatDayMonth(iso: string): string {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
+/**
+ * The date as a transaction row should show it: "11 Aug" normally, but
+ * "11 Aug 2025" once it leaves the current year. Both lists can be switched to
+ * the "Semua" period, where a bare day+month says nothing about which year.
+ */
+export function formatListDate(iso: string): string {
+  return iso.slice(0, 4) === String(new Date().getFullYear())
+    ? formatDayMonth(iso)
+    : formatDate(iso);
+}
+
 export function daysAgoISO(n: number): string {
   return toISO(new Date(Date.now() - n * DAY_MS));
 }

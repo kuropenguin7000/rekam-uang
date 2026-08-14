@@ -9,7 +9,7 @@ import { EditTransactionModal } from "./EditTransactionModal";
 import { Modal } from "./Modal";
 import { categoryDisplayName } from "@/lib/categoryName";
 import { memberDisplayName } from "@/lib/memberName";
-import { formatCurrency, formatDayMonth } from "@/lib/format";
+import { formatCurrency, formatListDate } from "@/lib/format";
 import { periodBounds, type HomePeriod } from "@/lib/period";
 import { inBounds } from "@/lib/stats";
 import { total } from "@/lib/aggregate";
@@ -127,12 +127,21 @@ export function Transactions({
                     </p>
                     <p className="truncate text-[11px] text-muted">
                       {mem ? `${mem.icon} ${memberDisplayName(mem, t)} · ` : ""}
-                      {categoryDisplayName(cat, t)} · {formatDayMonth(tx.date)}
+                      {categoryDisplayName(cat, t)}
                     </p>
                   </div>
-                  <span className="num shrink-0 text-[13px] font-semibold">
-                    {formatCurrency(tx.amount)}
-                  </span>
+                  {/* The date gets its own shrink-0 column rather than riding
+                      at the end of the truncated meta line — on a phone that
+                      line runs out of room and the date was the first thing
+                      cut, which is exactly the part you scan a list for. */}
+                  <div className="shrink-0 text-end">
+                    <p className="num text-[13px] font-semibold">
+                      {formatCurrency(tx.amount)}
+                    </p>
+                    <p className="num text-[10.5px] text-muted">
+                      {formatListDate(tx.date)}
+                    </p>
+                  </div>
                   <div className="flex shrink-0 items-center gap-1">
                     <button
                       onClick={() => setEditId(tx.id)}
