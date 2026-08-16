@@ -279,15 +279,14 @@ export function Beranda({
           🔁
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-[13px] font-semibold">
+          {/* Both lines truncate: the name is long enough to wrap on a phone,
+              and a wrapped headline pushes the card out of shape. */}
+          <span className="block truncate text-[13px] font-semibold">
             {commitmentDue > 0 ? t("com.navCard") : t("com.navCardEmpty")}
           </span>
           <span className="block truncate text-[11.5px] text-muted">
             {commitmentDue > 0
-              ? t("com.dueBreakdown", {
-                  subs: formatCurrency(commitmentTotals.subscriptions),
-                  inst: formatCurrency(commitmentTotals.installments),
-                })
+              ? t("com.navCardSub", { n: commitmentTotals.billingCount })
               : t("com.simSub")}
           </span>
         </span>

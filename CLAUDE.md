@@ -230,10 +230,20 @@ npm run dev                 # http://localhost:3000
   **re-iconable** + hideable, plus custom `m_*`; managed in
   [MemberManager.tsx](src/components/MemberManager.tsx) on the Akun tab).
   Member chips scope the transaction list; Statistik shows the split.
-- **Komitmen** ([Commitments.tsx](src/components/Commitments.tsx), a Beranda
-  sub-view like Transactions — the bottom bar is a fixed five slots): recurring
-  subscriptions and instalment plans, with the answer to "how much of next
-  month is already spoken for?".
+- **Langganan & Cicilan** ([Commitments.tsx](src/components/Commitments.tsx), a
+  Beranda sub-view like Transactions — the bottom bar is a fixed five slots):
+  recurring subscriptions and instalment plans, with the answer to "how much of
+  next month is already spoken for?".
+  - The screen was called "Komitmen" until it was renamed for being too
+    abstract — everyday Indonesian reads *komitmen* as a promise, not money.
+    **Only the copy changed.** Every code identifier is still `commitment*`
+    (the Firestore collection, `Commitment`/`CommitmentDraft`, the components,
+    the `com.*` message keys): renaming a live collection is a data migration
+    for zero user benefit, and this codebase already keeps infrastructure
+    names English while localising visible strings.
+  - The name appears inside running sentences, not just as a label, so any
+    future rename has to survive "Sisa gaji", "{salary} dikurangi {due} …" and
+    the delete confirmation — not only the screen title.
   - Maths is pure folds in [commitments.ts](src/lib/commitments.ts), done on
     the **yyyy-mm prefix as integers, never `Date`** — same reason transaction
     dates are strings.
