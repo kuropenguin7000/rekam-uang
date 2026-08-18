@@ -27,6 +27,9 @@ import type { Commitment } from "@/lib/types";
 
 type Filter = "all" | "subscription" | "installment";
 
+/** Commitment rows are tall — six already fills a phone screen. */
+const PAGE_SIZE = 6;
+
 /**
  * "Komitmen" — everything already promised to someone else, and what that
  * means for next month. A sub-view of Beranda rather than a tab, so the
@@ -52,6 +55,7 @@ export function Commitments({ onBack }: { onBack: () => void }) {
   const [editingSalary, setEditingSalary] = useState(false);
   const [salaryDraft, setSalaryDraft] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [page, setPage] = useState(1);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -76,6 +80,14 @@ export function Commitments({ onBack }: { onBack: () => void }) {
       return cb - ca || a.name.localeCompare(b.name);
     });
   }, [commitments, filter, nextMonth]);
+
+  // Clamped during render rather than reset from an effect: deleting the last
+  // row on the final page would otherwise leave `page` past the end for a
+  // frame, and an effect here is the same setState-in-effect pattern that
+  // already lints red elsewhere in this codebase.
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const confirming = commitments.find((c) => c.id === confirmId) ?? null;
   const leftover = salary - totals.due;
@@ -236,7 +248,10 @@ export function Commitments({ onBack }: { onBack: () => void }) {
         {(["all", "subscription", "installment"] as Filter[]).map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => {
+              setFilter(f);
+              setPage(1);
+            }}
             className={`flex-1 whitespace-nowrap rounded-[11px] py-2 text-center text-[12.5px] font-semibold transition ${
               filter === f ? "grad-primary" : "card text-muted hover:text-foreground"
             }`}
@@ -255,20 +270,44 @@ export function Commitments({ onBack }: { onBack: () => void }) {
       {rows.length === 0 ? (
         <p className="card p-6 text-center text-sm text-muted">{t("com.empty")}</p>
       ) : (
-        <ul className="space-y-2.5">
-          {rows.map((c) => (
-            <CommitmentRow
-              key={c.id}
-              commitment={c}
-              month={nextMonth}
-              onEdit={() => setEditing(c)}
-              onDelete={() => setConfirmId(c.id)}
-              onToggleActive={() =>
-                updateCommitment(c.id, { ...c, active: !c.active })
-              }
-            />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-2.5">
+            {pageRows.map((c) => (
+              <CommitmentRow
+                key={c.id}
+                commitment={c}
+                month={nextMonth}
+                onEdit={() => setEditing(c)}
+                onDelete={() => setConfirmId(c.id)}
+                onToggleActive={() =>
+                  updateCommitment(c.id, { ...c, active: !c.active })
+                }
+              />
+            ))}
+          </ul>
+
+          {totalPages > 1 && (
+            <div className="mt-2.5 flex items-center justify-between gap-2">
+              <button
+                onClick={() => setPage(Math.max(1, safePage - 1))}
+                disabled={safePage === 1}
+                className="card px-3 py-1.5 text-sm font-medium text-muted transition hover:text-foreground disabled:opacity-40"
+              >
+                {t("dash.prev")}
+              </button>
+              <span className="text-xs text-muted">
+                {t("dash.pageInfo", { page: safePage, total: totalPages })}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                disabled={safePage === totalPages}
+                className="card px-3 py-1.5 text-sm font-medium text-muted transition hover:text-foreground disabled:opacity-40"
+              >
+                {t("dash.next")}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {adding && (
