@@ -126,22 +126,30 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
   const [dailyBudgetState, setDailyBudgetState] = useState(0);
   const [salary, setSalaryState] = useState(0);
 
+  /**
+   * The single place a user doc becomes state. Both load paths used to inline
+   * this and they drifted: `salary` was hydrated on refresh() but not on the
+   * initial sign-in, so it read as unset after every page load even though
+   * Firestore held the right value.
+   */
+  const applyUserDoc = useCallback((uid: string, doc: db.UserDoc) => {
+    const me = toMeUser(uid, doc);
+    setUser(me);
+    setBudgetState(me.budget);
+    setDailyBudgetState(me.dailyBudget ?? 0);
+    setSalaryState(me.salary ?? 0);
+  }, []);
+
   const loadFor = useCallback(async (uid: string) => {
     const [doc, txs, coms] = await Promise.all([
       db.getUserDoc(uid),
       db.listTransactions(uid),
       db.listCommitments(uid),
     ]);
-    if (doc) {
-      const me = toMeUser(uid, doc);
-      setUser(me);
-      setBudgetState(me.budget);
-      setDailyBudgetState(me.dailyBudget ?? 0);
-      setSalaryState(me.salary ?? 0);
-    }
+    if (doc) applyUserDoc(uid, doc);
     setTransactions(txs);
     setCommitments(coms);
-  }, []);
+  }, [applyUserDoc]);
 
   const refresh = useCallback(async () => {
     const fbUser = clientAuth().currentUser;
@@ -165,10 +173,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
           name: fbUser.displayName ?? null,
           image: fbUser.photoURL ?? null,
         });
-        const me = toMeUser(fbUser.uid, doc);
-        setUser(me);
-        setBudgetState(me.budget);
-        setDailyBudgetState(me.dailyBudget ?? 0);
+        applyUserDoc(fbUser.uid, doc);
         const [txs, coms] = await Promise.all([
           db.listTransactions(fbUser.uid),
           db.listCommitments(fbUser.uid),
@@ -181,7 +186,8 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       setReady(true);
     });
     return unsub;
-  }, []);
+    // applyUserDoc is a stable useCallback([]), so this never re-subscribes.
+  }, [applyUserDoc]);
 
   const addExpense = useCallback(
     async (draft: NewTransaction): Promise<Transaction | null> => {
