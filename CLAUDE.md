@@ -324,6 +324,12 @@ config); optional `NEXT_PUBLIC_FIREBASE_USE_EMULATORS=1`.
   `allowedDevOrigins: ['*.trycloudflare.com']`.
 
 ## Deploy
+- **Deploy scripts**: `npm run deploy` builds and ships hosting only (the
+  usual case). `npm run deploy:full` builds, then deploys **firestore before
+  hosting** — that order matters: shipping the app first puts code in front of
+  users that the live rules still reject. Use it whenever firestore.rules or
+  firestore.indexes.json changed; `npm run deploy:rules` does rules alone.
+  Check with `git log <last-rules-deploy>..HEAD -- firestore.rules`.
 - **Firebase Hosting, Spark (free) plan — no card**: `npm run build` →
   `out/`, then `firebase deploy --only hosting` → `https://<project>.web.app`
   ([firebase.json](firebase.json): public `out`, cleanUrls). `web.app`/

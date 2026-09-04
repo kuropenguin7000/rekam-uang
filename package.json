@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "npm run build && firebase deploy --only hosting",
+    "deploy:rules": "firebase deploy --only firestore",
+    "deploy:full": "npm run build && firebase deploy --only firestore && firebase deploy --only hosting"
   },
   "dependencies": {
     "firebase": "^12.16.0",
