@@ -317,3 +317,97 @@ export function outlook(
 export function outlookPeak(points: OutlookPoint[]): number {
   return Math.max(1, ...points.map((p) => p.due));
 }
+
+// ---------------------------------------------------------------------------
+// Why a month differs from the one before it
+// ---------------------------------------------------------------------------
+
+/** The first month this plan ever bills; "" when it never does. */
+export function firstChargeMonth(c: Commitment | CommitmentDraft): string {
+  if (hasSchedule(c)) return scheduleMonths(c)[0] ?? "";
+  return monthKey(c.startDate);
+}
+
+/**
+ * Why one commitment's charge differs from the previous month's.
+ * `skipped` and `resumed` are the off-months of a plan that carries on
+ * (a yearly anniversary, the August a school-fee schedule leaves out);
+ * `ended` is a plan with nothing left after this.
+ */
+export type ChangeReason =
+  | "started"
+  | "resumed"
+  | "ended"
+  | "skipped"
+  | "promoEnded"
+  | "priceUp"
+  | "priceDown";
+
+export interface MonthChange {
+  commitment: Commitment | CommitmentDraft;
+  reason: ChangeReason;
+  /** Charge in the previous month and in this one. */
+  prev: number;
+  now: number;
+  /** now - prev; the amount this line moved the bar by. */
+  delta: number;
+}
+
+export interface MonthDelta {
+  month: string;
+  prevMonth: string;
+  prevDue: number;
+  due: number;
+  /** due - prevDue. Zero when the bar is flat, and then `changes` may still
+   *  be non-empty: a plan ending exactly as another starts nets out. */
+  delta: number;
+  /** Every commitment whose charge moved, biggest movement first. */
+  changes: MonthChange[];
+}
+
+/**
+ * The step from the previous month to `monthIso`, attributed line by line.
+ *
+ * A bar going up or down is the useful signal on the outlook chart and the
+ * one it cannot explain by itself — this names the plans behind the step.
+ * Derived from `chargeInMonth`, the same function the bar height uses, so the
+ * explanation can never contradict the shape it explains.
+ */
+export function monthDelta(
+  list: (Commitment | CommitmentDraft)[],
+  monthIso: string
+): MonthDelta {
+  const month = monthKey(monthIso);
+  const prevMonth = shiftMonth(month, -1);
+  const changes: MonthChange[] = [];
+  let due = 0;
+  let prevDue = 0;
+
+  for (const c of list) {
+    const now = chargeInMonth(c, month);
+    const prev = chargeInMonth(c, prevMonth);
+    due += now;
+    prevDue += prev;
+    if (now === prev) continue;
+
+    let reason: ChangeReason;
+    // A lapsed promo is checked first: a free trial ending reads as a plan
+    // starting from the charges alone, and "the promo ran out" is the answer
+    // the user is looking for.
+    if (now > prev && fullPriceFrom(c) === month) {
+      reason = "promoEnded";
+    } else if (prev === 0) {
+      reason = firstChargeMonth(c) === month ? "started" : "resumed";
+    } else if (now === 0) {
+      // Anything still to come means this is a gap, not the end of the plan.
+      reason = nextChargeMonth(c, month) === "" ? "ended" : "skipped";
+    } else {
+      reason = now > prev ? "priceUp" : "priceDown";
+    }
+
+    changes.push({ commitment: c, reason, prev, now, delta: now - prev });
+  }
+
+  changes.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  return { month, prevMonth, prevDue, due, delta: due - prevDue, changes };
+}

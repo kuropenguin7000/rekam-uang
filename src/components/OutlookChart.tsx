@@ -9,12 +9,15 @@ import { monthLabel } from "@/lib/period";
 import {
   chargeInMonth,
   installmentNumber,
+  monthDelta,
   outlook,
   outlookPeak,
   shiftMonth,
   totalPayments,
 } from "@/lib/commitments";
+import type { ChangeReason, MonthChange } from "@/lib/commitments";
 import type { Commitment, CommitmentDraft } from "@/lib/types";
+import type { MessageKey } from "@/i18n/messages";
 
 /** How far the window may be paged either way, in months. */
 const RANGE = 36;
@@ -55,7 +58,10 @@ export function OutlookChart({
   const [detail, setDetail] = useState<string | null>(null);
 
   const start = shiftMonth(fromMonth, offset);
-  const points = outlook(list, start, WINDOW);
+  // One extra month in front so the first bar can be compared too: a window
+  // that starts on a jump would otherwise hide the very step it starts with.
+  const series = outlook(list, shiftMonth(start, -1), WINDOW + 1);
+  const points = series.slice(1);
   const peak = outlookPeak(points);
 
   return (
@@ -94,29 +100,51 @@ export function OutlookChart({
       </div>
 
       <div className="flex items-end gap-1.5">
-        {points.map((p) => (
-          <button
-            key={p.month}
-            type="button"
-            onClick={() => setDetail(p.month)}
-            aria-label={t("com.detailOpen", {
-              month: monthLabel(p.month + "-01", locale),
-              amount: formatCurrency(p.due),
-            })}
-            className="flex min-w-0 flex-1 flex-col items-center rounded-lg py-1 transition hover:bg-surface-muted"
-          >
-            <span className="num mb-1 text-[9px] text-muted">
-              {p.due > 0 ? compactRupiah(p.due) : "–"}
-            </span>
-            <div
-              className="w-full rounded-t-[5px] bg-primary/80 transition-colors"
-              style={{ height: `${Math.max(3, (p.due / peak) * barHeight)}px` }}
-            />
-            <span className="mt-1 truncate text-[9.5px] text-muted">
-              {monthLabel(p.month + "-01", locale).slice(0, 3)}
-            </span>
-          </button>
-        ))}
+        {points.map((p, i) => {
+          const delta = p.due - series[i].due;
+          return (
+            <button
+              key={p.month}
+              type="button"
+              onClick={() => setDetail(p.month)}
+              aria-label={
+                t("com.detailOpen", {
+                  month: monthLabel(p.month + "-01", locale),
+                  amount: formatCurrency(p.due),
+                }) +
+                (delta === 0
+                  ? ""
+                  : ". " +
+                    t(delta > 0 ? "com.deltaUp" : "com.deltaDown", {
+                      amount: formatCurrency(Math.abs(delta)),
+                      month: monthLabel(series[i].month + "-01", locale),
+                    }))
+              }
+              className="flex min-w-0 flex-1 flex-col items-center rounded-lg py-1 transition hover:bg-surface-muted"
+            >
+              <span className="num mb-1 flex items-baseline gap-px text-[9px] text-muted">
+                {/* A step is the thing a bar chart shows and cannot name; the
+                    caret marks which bars are worth opening. */}
+                {delta !== 0 && (
+                  <span
+                    aria-hidden
+                    className={delta > 0 ? "text-danger" : "text-success"}
+                  >
+                    {delta > 0 ? "▲" : "▼"}
+                  </span>
+                )}
+                {p.due > 0 ? compactRupiah(p.due) : "–"}
+              </span>
+              <div
+                className="w-full rounded-t-[5px] bg-primary/80 transition-colors"
+                style={{ height: `${Math.max(3, (p.due / peak) * barHeight)}px` }}
+              />
+              <span className="mt-1 truncate text-[9.5px] text-muted">
+                {monthLabel(p.month + "-01", locale).slice(0, 3)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* The window can sit years away, so say which months these are. */}
@@ -159,6 +187,11 @@ function MonthDetail({
     .filter((r) => r.c.kind === "installment")
     .reduce((s, r) => s + r.charge, 0);
 
+  // Why this bar sits above or below the one to its left. Same
+  // `chargeInMonth` the bar heights use, so the two cannot disagree.
+  const step = monthDelta(list, month);
+  const prevLabel = monthLabel(step.prevMonth + "-01", locale);
+
   return (
     <Modal onClose={onClose} labelledBy="com-detail-title">
       <div className="mb-3 flex items-start justify-between gap-2">
@@ -169,6 +202,23 @@ function MonthDetail({
           <p className="num mt-0.5 text-[22px] font-bold leading-none tracking-tight">
             {formatCurrency(subs + inst)}
           </p>
+          <p
+            className={
+              "mt-1.5 text-[11px] font-medium " +
+              (step.delta > 0
+                ? "text-danger"
+                : step.delta < 0
+                  ? "text-success"
+                  : "text-muted")
+            }
+          >
+            {step.delta === 0
+              ? t("com.deltaFlat", { month: prevLabel })
+              : t(step.delta > 0 ? "com.deltaUp" : "com.deltaDown", {
+                  amount: formatCurrency(Math.abs(step.delta)),
+                  month: prevLabel,
+                })}
+          </p>
         </div>
         <button
           onClick={onClose}
@@ -178,6 +228,37 @@ function MonthDetail({
           ✕
         </button>
       </div>
+
+      {/* What moved the bar. Shown even when the step nets to zero — a plan
+          ending as another starts is exactly the case a flat bar hides. */}
+      {step.changes.length > 0 && (
+        <div className="mb-3 rounded-xl bg-surface-muted p-3">
+          <p className="mb-2 text-[11px] font-semibold text-muted">
+            {t("com.deltaWhy")}
+          </p>
+          <ul className="space-y-1.5">
+            {step.changes.map((ch, i) => (
+              <li key={i} className="flex items-center gap-2 text-[12px]">
+                <span className="min-w-0 flex-1 truncate">
+                  <span className="font-medium">{ch.commitment.name}</span>
+                  <span className="ms-1.5 text-[11px] text-muted">
+                    {reasonLabel(ch, t)}
+                  </span>
+                </span>
+                <span
+                  className={
+                    "num shrink-0 font-semibold " +
+                    (ch.delta > 0 ? "text-danger" : "text-success")
+                  }
+                >
+                  {ch.delta > 0 ? "+" : "−"}
+                  {formatCurrency(Math.abs(ch.delta))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <p className="rounded-xl bg-surface-muted p-4 text-center text-sm text-muted">
@@ -234,6 +315,26 @@ function MonthDetail({
       )}
     </Modal>
   );
+}
+
+/**
+ * Plain-language reason a line moved. A price change carries the old amount
+ * with it — "up from Rp 89.000" is the whole story of a lapsed promo.
+ */
+function reasonLabel(
+  ch: MonthChange,
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string
+): string {
+  const key: Record<ChangeReason, MessageKey> = {
+    started: "com.chgStarted",
+    resumed: "com.chgResumed",
+    ended: "com.chgEnded",
+    skipped: "com.chgSkipped",
+    promoEnded: "com.chgPromoEnded",
+    priceUp: "com.chgPriceUp",
+    priceDown: "com.chgPriceDown",
+  };
+  return t(key[ch.reason], { prev: formatCurrency(ch.prev) });
 }
 
 /**
