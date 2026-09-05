@@ -88,6 +88,13 @@ export function Commitments({ onBack }: { onBack: () => void }) {
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // A short last page used to collapse the list, yanking the pagination
+  // buttons — and everything under them — up by a row's height each, right
+  // as the user's finger was on "Berikutnya". Hidden copies of a real row
+  // hold the space open so every page is PAGE_SIZE rows tall. Copies rather
+  // than a fixed min-height: the height then comes from the row component
+  // itself and cannot drift when the row's markup changes.
+  const fillers = totalPages > 1 ? PAGE_SIZE - pageRows.length : 0;
 
   const confirming = commitments.find((c) => c.id === confirmId) ?? null;
   const leftover = salary - totals.due;
@@ -284,6 +291,17 @@ export function Commitments({ onBack }: { onBack: () => void }) {
                 }
               />
             ))}
+            {Array.from({ length: fillers }, (_, i) => (
+              <CommitmentRow
+                key={`filler-${i}`}
+                filler
+                commitment={pageRows[0]}
+                month={nextMonth}
+                onEdit={noop}
+                onDelete={noop}
+                onToggleActive={noop}
+              />
+            ))}
           </ul>
 
           {totalPages > 1 && (
@@ -358,18 +376,24 @@ export function Commitments({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** Handlers for a filler row, which nothing can reach. */
+function noop() {}
+
 function CommitmentRow({
   commitment: c,
   month,
   onEdit,
   onDelete,
   onToggleActive,
+  filler = false,
 }: {
   commitment: Commitment;
   month: string;
   onEdit: () => void;
   onDelete: () => void;
   onToggleActive: () => void;
+  /** Render as reserved space: laid out, but invisible and unreachable. */
+  filler?: boolean;
 }) {
   const { t, locale } = useI18n();
   const { categoryMeta } = useExpenses();
@@ -380,7 +404,12 @@ function CommitmentRow({
   const next = nextChargeMonth(c, month);
 
   return (
-    <li className={`card p-4 ${c.active ? "" : "opacity-60"}`}>
+    <li
+      aria-hidden={filler || undefined}
+      className={`card p-4 ${
+        filler ? "invisible" : c.active ? "" : "opacity-60"
+      }`}
+    >
       <div className="flex items-start gap-3">
         <span
           className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-base"
