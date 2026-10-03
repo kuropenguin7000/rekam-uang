@@ -411,3 +411,93 @@ export function monthDelta(
   changes.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   return { month, prevMonth, prevDue, due, delta: due - prevDue, changes };
 }
+
+// ---------------------------------------------------------------------------
+// Payment checklist
+// ---------------------------------------------------------------------------
+
+function daysInMonth(month: string): number {
+  const y = Number(month.slice(0, 4));
+  const m = Number(month.slice(5, 7));
+  if (m === 2) return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 ? 29 : 28;
+  return [4, 6, 9, 11].includes(m) ? 30 : 31;
+}
+
+/**
+ * The yyyy-mm-dd a charge falls due in `monthIso`, taken from the day of the
+ * start date and clamped to the month (a plan started on the 31st is due on
+ * the 30th in November). "" when the day is unknown: a custom schedule pins
+ * its start to the 1st, which says nothing about when the invoice is due.
+ */
+export function dueDate(
+  c: Commitment | CommitmentDraft,
+  monthIso: string
+): string {
+  if (hasSchedule(c)) return "";
+  const month = monthKey(monthIso);
+  const day = Math.min(Number(c.startDate.slice(8, 10)) || 1, daysInMonth(month));
+  return `${month}-${String(day).padStart(2, "0")}`;
+}
+
+/** The day the user ticked `monthIso` off, or "" when it is still unpaid. */
+export function paidOn(c: Commitment | CommitmentDraft, monthIso: string): string {
+  // Drafts have no checklist; `?.` also covers a record built without one.
+  return ("paid" in c && c.paid?.[monthKey(monthIso)]) || "";
+}
+
+/**
+ * Billed in the month we are living through, past its due day, and not ticked.
+ *
+ * Only ever the current month: an unticked past month usually means the user
+ * paid and didn't record it, and flagging the whole history red would bury the
+ * one bill that actually needs attention today. A plan with no known due day
+ * is never overdue mid-month.
+ */
+export function isOverdue(
+  c: Commitment | CommitmentDraft,
+  monthIso: string,
+  todayIso: string
+): boolean {
+  if (monthKey(monthIso) !== monthKey(todayIso)) return false;
+  if (chargeInMonth(c, monthIso) <= 0 || paidOn(c, monthIso)) return false;
+  const due = dueDate(c, monthIso);
+  return due !== "" && due < todayIso;
+}
+
+export interface Checklist {
+  /** Commitments billing in the month, and how many are ticked off. */
+  total: number;
+  paidCount: number;
+  /** Rupiah still to pay this month. */
+  unpaid: number;
+  overdue: number;
+}
+
+/** Progress through one month's bills. Same `chargeInMonth` as everywhere. */
+export function checklistForMonth(
+  list: (Commitment | CommitmentDraft)[],
+  monthIso: string,
+  todayIso: string
+): Checklist {
+  const out: Checklist = { total: 0, paidCount: 0, unpaid: 0, overdue: 0 };
+  for (const c of list) {
+    const charge = chargeInMonth(c, monthIso);
+    if (charge <= 0) continue;
+    out.total++;
+    if (paidOn(c, monthIso)) out.paidCount++;
+    else out.unpaid += charge;
+    if (isOverdue(c, monthIso, todayIso)) out.overdue++;
+  }
+  return out;
+}
+
+/**
+ * Overdue bills worth a notification: only plans the user has ever ticked off.
+ * Someone who never uses the checklist would otherwise be nagged daily about
+ * bills they paid long ago — ticking one is the opt-in.
+ */
+export function trackedOverdue(list: Commitment[], todayIso: string): number {
+  return list.filter(
+    (c) => Object.keys(c.paid ?? {}).length > 0 && isOverdue(c, todayIso, todayIso)
+  ).length;
+}

@@ -22,6 +22,7 @@ import type {
 } from "@/lib/types";
 import { effectiveCategories, resolveCategory } from "@/lib/categories";
 import { effectiveMembers, resolveMember } from "@/lib/members";
+import { todayISO } from "@/lib/format";
 
 export interface MeUser {
   id: string;
@@ -55,6 +56,11 @@ export interface AppState {
   addCommitment: (draft: CommitmentDraft) => Promise<void>;
   updateCommitment: (id: string, draft: CommitmentDraft) => Promise<void>;
   deleteCommitment: (id: string) => Promise<void>;
+  /**
+   * Tick a commitment's `month` (yyyy-mm) off the checklist, or untick it.
+   * Resolves false when the write failed and the tick was rolled back.
+   */
+  setCommitmentPaid: (id: string, month: string, paid: boolean) => Promise<boolean>;
   budget: number;
   /** effective daily budget threshold (explicit setting, or budget/30) */
   dailyBudget: number;
@@ -268,6 +274,38 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
     [user]
   );
 
+  const setCommitmentPaidFn = useCallback(
+    async (id: string, month: string, paid: boolean) => {
+      const target = commitments.find((c) => c.id === id);
+      if (!user || !target) return false;
+      const paidOnIso = paid ? todayISO() : null;
+      // Optimistic: a checkbox that waits on the network feels broken. Only
+      // this one key is touched, both ways, so a failure can't undo a
+      // neighbouring tick that landed meanwhile.
+      const apply = (value: string | null) =>
+        setCommitments((prev) =>
+          prev.map((c) => {
+            if (c.id !== id) return c;
+            const next = { ...c.paid };
+            if (value) next[month] = value;
+            else delete next[month];
+            return { ...c, paid: next };
+          })
+        );
+      const before = target.paid[month] ?? null;
+      apply(paidOnIso);
+      try {
+        await db.setCommitmentPaid(user.id, target, month, paidOnIso);
+        return true;
+      } catch (err) {
+        apply(before);
+        console.error("setCommitmentPaid failed", err);
+        return false;
+      }
+    },
+    [user, commitments]
+  );
+
   const setBudget = useCallback(
     async (value: number) => {
       if (!user) return;
@@ -393,6 +431,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       addCommitment,
       updateCommitment: updateCommitmentFn,
       deleteCommitment: deleteCommitmentFn,
+      setCommitmentPaid: setCommitmentPaidFn,
       budget,
       dailyBudget,
       categoryBudgets,
@@ -424,6 +463,7 @@ export function ExpenseProvider({ children }: { children: React.ReactNode }) {
       addCommitment,
       updateCommitmentFn,
       deleteCommitmentFn,
+      setCommitmentPaidFn,
       budget,
       dailyBudget,
       categoryBudgets,

@@ -1,7 +1,9 @@
 import {
+  FieldPath,
   Timestamp,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -77,6 +79,8 @@ const MAX_CUSTOM_MEMBERS = 20;
 const MAX_TENOR = 600;
 const MAX_INTRO_PERIODS = 120;
 const MAX_SCHEDULE_ENTRIES = 120;
+/** Ticked-off months kept per commitment: fifty years of a monthly plan. */
+const MAX_PAID_ENTRIES = 600;
 const MONTH_RE = /^\d{4}-\d{2}$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -532,6 +536,21 @@ function readSchedule(raw: unknown): Record<string, number> {
   return out;
 }
 
+/**
+ * Coerce a stored checklist into { "yyyy-mm": "yyyy-mm-dd" }. Same split as
+ * the schedule: the rules check map + size, entries are checked here.
+ */
+function readPaid(raw: unknown): Record<string, string> {
+  if (!raw || typeof raw !== "object") return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!MONTH_RE.test(k) || typeof v !== "string" || !DATE_RE.test(v)) continue;
+    out[k] = v;
+    if (Object.keys(out).length >= MAX_PAID_ENTRIES) break;
+  }
+  return out;
+}
+
 function commitmentFromSnap(
   snap: DocumentSnapshot | QueryDocumentSnapshot
 ): Commitment {
@@ -564,6 +583,7 @@ function commitmentFromSnap(
     // Missing means active: docs written before a pause switch existed should
     // still count toward the bill.
     active: d.active !== false,
+    paid: readPaid(d.paid),
     createdAt:
       created instanceof Timestamp
         ? created.toMillis()
@@ -648,7 +668,7 @@ export async function createCommitment(
   const ref = doc(commitmentCol(uid));
   const createdAt = Timestamp.now();
   await setDoc(ref, { ...clean, createdAt });
-  return { id: ref.id, ...clean, createdAt: createdAt.toMillis() };
+  return { id: ref.id, ...clean, paid: {}, createdAt: createdAt.toMillis() };
 }
 
 export async function updateCommitment(
@@ -667,4 +687,44 @@ export async function updateCommitment(
 
 export async function deleteCommitment(uid: string, id: string): Promise<void> {
   await deleteDoc(doc(commitmentCol(uid), id));
+}
+
+/**
+ * Tick a month off (`paidOnIso` = the day it was paid) or untick it (null).
+ *
+ * Writes the single key `paid.<month>` rather than the whole map, so ticking
+ * November on the phone and October on the laptop can't overwrite each other.
+ * A FieldPath, not a dotted string: the month key is data, and building the
+ * path by concatenation is how a stray character would turn into nesting.
+ *
+ * The rules validate the whole merged document on every update, so a doc
+ * saved before some field became required (they read fine — commitmentFromSnap
+ * fills the gaps — but no longer pass the rules) rejects even this one-key
+ * write. Editing such a commitment heals it, because the form rewrites every
+ * field. On permission-denied this does the same: retry with the normalised
+ * fields backfilled. Only as the fallback — on the normal path a tick must not
+ * rewrite fields another device may have just edited.
+ */
+export async function setCommitmentPaid(
+  uid: string,
+  commitment: Commitment,
+  month: string,
+  paidOnIso: string | null
+): Promise<void> {
+  if (!MONTH_RE.test(month)) return;
+  if (paidOnIso !== null && !DATE_RE.test(paidOnIso)) return;
+  const ref = doc(commitmentCol(uid), commitment.id);
+  const tick = paidOnIso ?? deleteField();
+  try {
+    await updateDoc(ref, new FieldPath("paid", month), tick);
+  } catch (err) {
+    const clean = sanitizeCommitment(commitment);
+    if ((err as { code?: string }).code !== "permission-denied" || !clean) throw err;
+    await updateDoc(
+      ref,
+      new FieldPath("paid", month),
+      tick,
+      ...Object.entries(clean).flat()
+    );
+  }
 }

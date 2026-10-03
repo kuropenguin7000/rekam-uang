@@ -89,6 +89,10 @@ service cloud.firestore {
             && d.note is string && d.note.size() <= 280
             && d.startDate is string && d.startDate.matches('\\d{4}-\\d{2}-\\d{2}')
             && d.active is bool
+            // Payment checklist, yyyy-mm → yyyy-mm-dd. Optional: docs written
+            // before it existed have no such field. Shape and size only, same
+            // as the schedule — readPaid() in firestore.ts checks the entries.
+            && (!('paid' in d) || (d.paid is map && d.paid.size() <= 600))
             && d.createdAt is timestamp;
         }
 

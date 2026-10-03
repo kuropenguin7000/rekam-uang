@@ -225,6 +225,9 @@ const id = {
   "notif.catOver.title": "Anggaran kategori terlampaui",
   "notif.catOver.body":
     "Pengeluaran {category} bulan ini melebihi anggaran sebesar {over}.",
+  "notif.billsOverdue.title": "Ada tagihan yang belum dibayar",
+  "notif.billsOverdue.body":
+    "Langganan atau cicilan bulan ini sudah lewat jatuh tempo dan belum dicentang lunas.",
 
   "cat.food": "Makanan & Minuman",
   "cat.transport": "Transportasi",
@@ -330,6 +333,15 @@ const id = {
   "com.chgPromoEnded": "Harga promo berakhir",
   "com.chgPriceUp": "Naik dari {prev}",
   "com.chgPriceDown": "Turun dari {prev}",
+  "com.dueOn": "Jatuh tempo {date}",
+  "com.overdue": "Telat · {date}",
+  "com.paidOn": "Dibayar {date}",
+  "com.checkProgress": "{paid} dari {total} sudah dibayar",
+  "com.checkUnpaid": "Belum dibayar {amount}",
+  "com.checkDone": "Semua sudah dibayar",
+  "com.checkOverdue": "{n} telat",
+  "com.checkHint": "Ketuk untuk centang yang sudah dibayar",
+  "com.checkFailed": "Gagal menyimpan centang. Cek koneksi lalu coba lagi.",
   "com.salary": "Gaji bulanan",
   "com.salarySet": "Atur gaji",
   "com.leftover": "Sisa gaji",
@@ -600,6 +612,9 @@ const en: Dict = {
   "notif.catOver.title": "Category budget exceeded",
   "notif.catOver.body":
     "Your {category} spending this month is over budget by {over}.",
+  "notif.billsOverdue.title": "Unpaid bills",
+  "notif.billsOverdue.body":
+    "A subscription or instalment this month is past its due date and not ticked off yet.",
 
   "cat.food": "Food & Beverage",
   "cat.transport": "Transport",
@@ -705,6 +720,15 @@ const en: Dict = {
   "com.chgPromoEnded": "Intro price ended",
   "com.chgPriceUp": "Up from {prev}",
   "com.chgPriceDown": "Down from {prev}",
+  "com.dueOn": "Due {date}",
+  "com.overdue": "Overdue · {date}",
+  "com.paidOn": "Paid {date}",
+  "com.checkProgress": "{paid} of {total} paid",
+  "com.checkUnpaid": "{amount} left to pay",
+  "com.checkDone": "All paid",
+  "com.checkOverdue": "{n} overdue",
+  "com.checkHint": "Tap to tick off what you've paid",
+  "com.checkFailed": "Couldn't save that tick. Check your connection and try again.",
   "com.salary": "Monthly salary",
   "com.salarySet": "Set salary",
   "com.leftover": "Salary left",

@@ -4,12 +4,16 @@ import { useState } from "react";
 import { useI18n } from "./I18nProvider";
 import { Modal } from "./Modal";
 import { useExpenses } from "@/store/ExpenseStore";
-import { formatCurrency, groupDigits } from "@/lib/format";
-import { monthLabel } from "@/lib/period";
+import { formatCurrency, groupDigits, todayISO } from "@/lib/format";
+import { dayMonthLabel, monthLabel } from "@/lib/period";
 import {
   chargeInMonth,
+  checklistForMonth,
+  dueDate,
   installmentNumber,
+  isOverdue,
   monthDelta,
+  paidOn,
   outlook,
   outlookPeak,
   shiftMonth,
@@ -45,11 +49,14 @@ export function OutlookChart({
   list,
   fromMonth,
   barHeight = 72,
+  checklist = false,
 }: {
   list: Entry[];
   /** yyyy-mm the unpaged window starts at (normally next month). */
   fromMonth: string;
   barHeight?: number;
+  /** Let the month breakdown tick payments off. Off in the simulator. */
+  checklist?: boolean;
 }) {
   const { t, locale } = useI18n();
   // Offset in months from `fromMonth`; negative pages into the past, which is
@@ -154,31 +161,56 @@ export function OutlookChart({
       </p>
 
       {detail && (
-        <MonthDetail list={list} month={detail} onClose={() => setDetail(null)} />
+        <MonthDetail
+          list={list}
+          month={detail}
+          checklist={checklist}
+          onClose={() => setDetail(null)}
+        />
       )}
     </div>
   );
 }
 
-/** What actually makes up one month's bar. */
-function MonthDetail({
+/**
+ * What actually makes up one month's bar — and, with `checklist`, the list
+ * you tick off as you pay. Exported so the screen's "this month" card opens
+ * the very same view.
+ */
+export function MonthDetail({
   list,
   month,
   onClose,
+  checklist = false,
 }: {
   list: Entry[];
   month: string;
   onClose: () => void;
+  checklist?: boolean;
 }) {
   const { t, locale } = useI18n();
-  const { categoryMeta } = useExpenses();
+  const { categoryMeta, setCommitmentPaid } = useExpenses();
+  const today = todayISO();
+
+  // What was already paid when the sheet opened. Unpaid rows sort first so
+  // the sheet reads as a to-do list — but frozen here, because re-sorting on
+  // every tick would slide the row out from under the finger that tapped it.
+  const [paidAtOpen] = useState(
+    () => new Set(list.filter((c) => paidOn(c, month)).map(entryKey))
+  );
+  const wasPaid = (c: Entry) => checklist && paidAtOpen.has(entryKey(c));
+  // A failed tick is rolled back; say so, or it just looks like a dead row.
+  const [saveFailed, setSaveFailed] = useState(false);
 
   // Only what bills in this month, biggest first — the order you'd audit a
-  // bill in, and it makes the reason for a spike the top row.
+  // bill in.
   const rows = list
     .map((c) => ({ c, charge: chargeInMonth(c, month) }))
     .filter((r) => r.charge > 0)
-    .sort((a, b) => b.charge - a.charge);
+    .sort(
+      (a, b) =>
+        Number(wasPaid(a.c)) - Number(wasPaid(b.c)) || b.charge - a.charge
+    );
 
   const subs = rows
     .filter((r) => r.c.kind === "subscription")
@@ -186,6 +218,8 @@ function MonthDetail({
   const inst = rows
     .filter((r) => r.c.kind === "installment")
     .reduce((s, r) => s + r.charge, 0);
+  const progress = checklistForMonth(list, month, today);
+  const allPaid = progress.total > 0 && progress.paidCount === progress.total;
 
   // Why this bar sits above or below the one to its left. Same
   // `chargeInMonth` the bar heights use, so the two cannot disagree.
@@ -273,47 +307,182 @@ function MonthDetail({
             })}
           </p>
 
+          {checklist && (
+            <div className="mb-1.5">
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  className={`h-full rounded-full transition-[width] duration-300 ${
+                    allPaid ? "bg-success" : "grad-primary"
+                  }`}
+                  style={{
+                    width: `${Math.round((progress.paidCount / progress.total) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
+                <span className={allPaid ? "font-semibold text-success" : "text-muted"}>
+                  {allPaid
+                    ? "✓ " + t("com.checkDone")
+                    : t("com.checkProgress", {
+                        paid: progress.paidCount,
+                        total: progress.total,
+                      })}
+                </span>
+                {!allPaid && (
+                  <span className="num font-semibold">
+                    {t("com.checkUnpaid", { amount: formatCurrency(progress.unpaid) })}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {saveFailed && (
+            <p
+              role="alert"
+              className="mb-1.5 mt-2 rounded-lg bg-danger-soft px-2.5 py-1.5 text-[11.5px] font-medium text-danger"
+            >
+              {t("com.checkFailed")}
+            </p>
+          )}
+
           <ul className="divide-y divide-border">
-            {rows.map((r, i) => {
-              const cat = categoryMeta(r.c.category);
-              const n = installmentNumber(r.c, month);
-              return (
-                <li key={i} className="flex items-center gap-2.5 py-2.5">
-                  <span
-                    className="grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm"
-                    style={{ background: cat.color + "22" }}
-                  >
-                    {cat.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium">
-                      {r.c.name}
-                      {isDraft(r.c) && (
-                        <span className="ms-1.5 rounded-full bg-primary-soft px-1.5 py-0.5 text-[9.5px] font-semibold text-primary">
-                          {t("com.detailDraft")}
-                        </span>
-                      )}
-                    </p>
-                    <p className="truncate text-[11px] text-muted">
-                      {r.c.kind === "installment"
-                        ? t("com.detailInst", { n, total: totalPayments(r.c) })
-                        : t(
-                            r.c.cycle === "yearly"
-                              ? "com.rowYearly"
-                              : "com.rowMonthly"
-                          )}
-                    </p>
-                  </div>
-                  <span className="num shrink-0 text-[13px] font-semibold">
-                    {formatCurrency(r.charge)}
-                  </span>
-                </li>
-              );
-            })}
+            {rows.map((r, i) => (
+              <DetailRow
+                key={i}
+                entry={r.c}
+                charge={r.charge}
+                month={month}
+                today={today}
+                checklist={checklist}
+                icon={categoryMeta(r.c.category)}
+                onToggle={(id, paid) =>
+                  setCommitmentPaid(id, month, paid).then((ok) => setSaveFailed(!ok))
+                }
+              />
+            ))}
           </ul>
         </>
       )}
     </Modal>
+  );
+}
+
+
+/**
+ * Stable identity for a breakdown row. Saved commitments have an id; simulator
+ * drafts don't, so they fall back to their position-free content.
+ */
+function entryKey(c: Entry): string {
+  return isDraft(c) ? `draft|${c.name}|${c.startDate}|${c.amount}` : (c as Commitment).id;
+}
+
+/**
+ * One line of the breakdown. With the checklist on, a saved commitment's whole
+ * row is the checkbox — a 22px circle alone is too small a target on a phone.
+ * Simulator drafts never get one: there is nothing saved to tick.
+ */
+function DetailRow({
+  entry: c,
+  charge,
+  month,
+  today,
+  checklist,
+  icon,
+  onToggle,
+}: {
+  entry: Entry;
+  charge: number;
+  month: string;
+  today: string;
+  checklist: boolean;
+  icon: { icon: string; color: string };
+  onToggle: (id: string, paid: boolean) => void;
+}) {
+  const { t, locale } = useI18n();
+  const id = isDraft(c) ? null : (c as Commitment).id;
+  const paid = paidOn(c, month);
+  const overdue = isOverdue(c, month, today);
+  const due = dueDate(c, month);
+  const n = installmentNumber(c, month);
+
+  const status =
+    !checklist || id === null
+      ? null
+      : paid
+        ? { text: t("com.paidOn", { date: dayMonthLabel(paid, locale) }), cls: "text-success" }
+        : overdue
+          ? {
+              text: t("com.overdue", { date: dayMonthLabel(due, locale) }),
+              cls: "font-semibold text-danger",
+            }
+          : due
+            ? { text: t("com.dueOn", { date: dayMonthLabel(due, locale) }), cls: "text-muted" }
+            : null;
+
+  const content = (
+    <>
+      {checklist && id !== null && (
+        <span
+          aria-hidden
+          className={`grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border-2 text-[12px] font-bold leading-none transition ${
+            paid
+              ? "border-success bg-success text-white"
+              : overdue
+                ? "border-danger"
+                : "border-border"
+          }`}
+        >
+          {paid ? "✓" : ""}
+        </span>
+      )}
+      <span
+        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm transition ${
+          paid ? "opacity-50" : ""
+        }`}
+        style={{ background: icon.color + "22" }}
+      >
+        {icon.icon}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className={`truncate text-[13px] font-medium ${paid ? "text-muted" : ""}`}>
+          {c.name}
+          {isDraft(c) && (
+            <span className="ms-1.5 rounded-full bg-primary-soft px-1.5 py-0.5 text-[9.5px] font-semibold text-primary">
+              {t("com.detailDraft")}
+            </span>
+          )}
+        </p>
+        <p className="truncate text-[11px] text-muted">
+          {c.kind === "installment"
+            ? t("com.detailInst", { n, total: totalPayments(c) })
+            : t(c.cycle === "yearly" ? "com.rowYearly" : "com.rowMonthly")}
+        </p>
+      </div>
+      <div className="shrink-0 text-end">
+        <p className={`num text-[13px] font-semibold ${paid ? "text-muted" : ""}`}>
+          {formatCurrency(charge)}
+        </p>
+        {status && <p className={`mt-0.5 text-[10px] ${status.cls}`}>{status.text}</p>}
+      </div>
+    </>
+  );
+
+  if (!checklist || id === null) {
+    return <li className="flex items-center gap-2.5 py-2.5">{content}</li>;
+  }
+  return (
+    <li>
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={Boolean(paid)}
+        onClick={() => onToggle(id, !paid)}
+        className="-mx-2 flex w-[calc(100%+1rem)] items-center gap-2.5 rounded-lg px-2 py-2.5 text-start transition hover:bg-surface-muted"
+      >
+        {content}
+      </button>
+    </li>
   );
 }
 

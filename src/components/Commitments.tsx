@@ -6,15 +6,17 @@ import { useI18n } from "./I18nProvider";
 import { Modal } from "./Modal";
 import { CommitmentForm } from "./CommitmentForm";
 import { CommitmentSimulator } from "./CommitmentSimulator";
-import { OutlookChart } from "./OutlookChart";
+import { MonthDetail, OutlookChart } from "./OutlookChart";
 import { groupDigits } from "@/lib/format";
 import { formatCurrency } from "@/lib/format";
 import { monthLabel } from "@/lib/period";
 import { todayISO } from "@/lib/format";
 import {
   chargeInMonth,
+  checklistForMonth,
   finalMonth,
   installmentNumber,
+  monthKey,
   nextChargeMonth,
   nextMonthOf,
   promoLeft,
@@ -60,6 +62,7 @@ export function Commitments({ onBack }: { onBack: () => void }) {
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [simulating, setSimulating] = useState(false);
+  const [paying, setPaying] = useState(false);
 
   // "Next month" is the question the user actually asked, so it is the anchor
   // for every figure on this screen.
@@ -68,6 +71,17 @@ export function Commitments({ onBack }: { onBack: () => void }) {
     () => totalsForMonth(commitments, nextMonth),
     [commitments, nextMonth]
   );
+
+  // Next month is what you plan for; this month is what you actually pay.
+  // The outlook starts at next month, so without this card the bills due
+  // right now would be six pages back.
+  const today = useMemo(() => todayISO(), []);
+  const thisMonth = monthKey(today);
+  const check = useMemo(
+    () => checklistForMonth(commitments, thisMonth, today),
+    [commitments, thisMonth, today]
+  );
+  const allPaid = check.total > 0 && check.paidCount === check.total;
   const rows = useMemo(() => {
     const list =
       filter === "all" ? commitments : commitments.filter((c) => c.kind === filter);
@@ -141,6 +155,51 @@ export function Commitments({ onBack }: { onBack: () => void }) {
           })}
         </p>
       </div>
+
+      {check.total > 0 && (
+        <button
+          onClick={() => setPaying(true)}
+          className="card block w-full p-4 text-start transition hover:border-primary"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12.5px] font-semibold">
+              {t("com.dueIn", { month: monthLabel(thisMonth + "-01", locale) })}
+            </span>
+            <span className="flex items-center gap-1.5">
+              {check.overdue > 0 && (
+                <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[10.5px] font-semibold text-danger">
+                  {t("com.checkOverdue", { n: check.overdue })}
+                </span>
+              )}
+              <span
+                className={`num text-[12px] font-semibold ${allPaid ? "text-success" : ""}`}
+              >
+                {check.paidCount}/{check.total}
+              </span>
+              <span className="text-muted">›</span>
+            </span>
+          </div>
+          <div className="mt-2.5 h-1.5 overflow-hidden rounded-full bg-surface-muted">
+            <div
+              className={`h-full rounded-full transition-[width] duration-300 ${
+                allPaid ? "bg-success" : "grad-primary"
+              }`}
+              style={{ width: `${Math.round((check.paidCount / check.total) * 100)}%` }}
+            />
+          </div>
+          <p
+            className={`mt-2 text-[11px] ${
+              allPaid ? "font-semibold text-success" : "text-muted"
+            }`}
+          >
+            {allPaid
+              ? "✓ " + t("com.checkDone")
+              : check.paidCount === 0
+                ? t("com.checkHint")
+                : t("com.checkUnpaid", { amount: formatCurrency(check.unpaid) })}
+          </p>
+        </button>
+      )}
 
       {/* Salary → what survives the fixed obligations. Deliberately not the
           spending budget: this is take-home pay, and no transaction is ever
@@ -236,7 +295,7 @@ export function Commitments({ onBack }: { onBack: () => void }) {
           reachable without arithmetic. */}
       {commitments.length > 0 && (
         <div className="card p-4">
-          <OutlookChart list={commitments} fromMonth={nextMonth} />
+          <OutlookChart list={commitments} fromMonth={nextMonth} checklist />
         </div>
       )}
 
@@ -344,6 +403,15 @@ export function Commitments({ onBack }: { onBack: () => void }) {
       )}
 
       {simulating && <CommitmentSimulator onClose={() => setSimulating(false)} />}
+
+      {paying && (
+        <MonthDetail
+          list={commitments}
+          month={thisMonth}
+          checklist
+          onClose={() => setPaying(false)}
+        />
+      )}
 
       {confirming && (
         <Modal onClose={() => setConfirmId(null)} labelledBy="com-del-title">

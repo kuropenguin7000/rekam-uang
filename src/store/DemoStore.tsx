@@ -22,6 +22,7 @@ import { todayISO, toISO } from "@/lib/format";
 import {
   LIMITS,
   MAX_AMOUNT,
+  isMonthKey,
   safeAmount,
   safeColor,
   safeCount,
@@ -133,6 +134,8 @@ function seedCommitments(): Commitment[] {
       member: "shared",
       note: "",
       active: true,
+      // Already ticked off, so the checklist opens part-way through.
+      paid: { [thisMonth]: toISO(now) },
       createdAt: Date.now(),
     },
     {
@@ -151,6 +154,7 @@ function seedCommitments(): Commitment[] {
       member: "father",
       note: "",
       active: true,
+      paid: {},
       createdAt: Date.now(),
     },
     {
@@ -168,6 +172,7 @@ function seedCommitments(): Commitment[] {
       member: "mother",
       note: "",
       active: true,
+      paid: {},
       createdAt: Date.now(),
     },
     {
@@ -193,6 +198,7 @@ function seedCommitments(): Commitment[] {
       member: "kids",
       note: "",
       active: true,
+      paid: {},
       createdAt: Date.now(),
     },
   ];
@@ -350,7 +356,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setCommitments((prev) =>
         prev.length >= LIMITS.commitments
           ? prev
-          : [...prev, { ...clean, id: nextId("com"), createdAt: Date.now() }]
+          : [...prev, { ...clean, id: nextId("com"), paid: {}, createdAt: Date.now() }]
       );
     },
     [cleanCommitment]
@@ -370,6 +376,24 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const deleteCommitment = useCallback(async (id: string) => {
     setCommitments((prev) => prev.filter((c) => c.id !== id));
   }, []);
+
+  const setCommitmentPaid = useCallback(
+    async (id: string, month: string, paid: boolean) => {
+      if (!isMonthKey(month)) return false;
+      setCommitments((prev) =>
+        prev.map((c) => {
+          if (c.id !== id) return c;
+          const next = { ...c.paid };
+          if (!paid) delete next[month];
+          else if (month in next || Object.keys(next).length < LIMITS.paidMonths)
+            next[month] = todayISO();
+          return { ...c, paid: next };
+        })
+      );
+      return true;
+    },
+    []
+  );
 
   // ---- settings ----------------------------------------------------------
 
@@ -561,6 +585,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       addCommitment,
       updateCommitment,
       deleteCommitment,
+      setCommitmentPaid,
       budget,
       dailyBudget: dailyBudgetState > 0 ? dailyBudgetState : budget / 30,
       salary,
@@ -591,6 +616,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       addCommitment,
       updateCommitment,
       deleteCommitment,
+      setCommitmentPaid,
       budget,
       dailyBudgetState,
       salary,

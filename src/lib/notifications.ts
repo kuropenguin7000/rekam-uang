@@ -34,6 +34,8 @@ export interface NotificationInput {
   categoryBudgets?: Record<string, number>;
   /** resolves a category id to its localized name (for the alert text) */
   categoryLabel?: (id: string) => string;
+  /** Tracked subscriptions/instalments past due and unticked this month. */
+  overdueBills?: number;
 }
 
 /** Flag the monthly budget once spending crosses this fraction of it. */
@@ -134,6 +136,20 @@ export function computeNotifications(input: NotificationInput): AppNotification[
         });
       }
     }
+  }
+
+  // --- Unpaid bills ---
+  // Keyed by day, not by count: the log treats changed params as a new alert,
+  // so a count here would log a fresh nag the moment the user ticked one off.
+  if (input.overdueBills && input.overdueBills > 0) {
+    out.push({
+      id: "bills-overdue",
+      severity: "warning",
+      icon: "🧾",
+      titleKey: "notif.billsOverdue.title",
+      bodyKey: "notif.billsOverdue.body",
+      params: { date: today },
+    });
   }
 
   // Most urgent first, stable within the same severity.

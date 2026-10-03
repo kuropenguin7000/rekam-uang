@@ -20,6 +20,8 @@ export const LIMITS = {
   customMembers: 6,
   /** Entries in one custom instalment plan. */
   scheduleEntries: 24,
+  /** Ticked-off months per commitment (the chart pages ±36 months). */
+  paidMonths: 80,
 } as const;
 
 /** Nothing in a demo needs to exceed a billion rupiah. */

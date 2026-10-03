@@ -11,6 +11,8 @@ import {
   type AppNotification,
   type NotificationSeverity,
 } from "@/lib/notifications";
+import { trackedOverdue } from "@/lib/commitments";
+import { todayISO } from "@/lib/format";
 
 const LOG_STORAGE_KEY = "sw_notif_log_v2";
 /** Keep at most this many notifications; older ones are dropped (FIFO). */
@@ -79,7 +81,7 @@ function saveLog(log: LogEntry[]) {
  * dimmed). The badge counts unread.
  */
 export function NotificationBell() {
-  const { user, transactions, budget, categoryBudgets } = useExpenses();
+  const { user, transactions, commitments, budget, categoryBudgets } = useExpenses();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -105,8 +107,9 @@ export function NotificationBell() {
       transactions,
       categoryBudgets,
       categoryLabel: (id) => t(`cat.${id}` as MessageKey),
+      overdueBills: trackedOverdue(commitments, todayISO()),
     });
-  }, [user, transactions, budget, categoryBudgets, t]);
+  }, [user, transactions, commitments, budget, categoryBudgets, t]);
 
   // Materialise newly-active alerts into the log (newest first, FIFO-capped).
   useEffect(() => {

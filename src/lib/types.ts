@@ -132,6 +132,15 @@ export interface CommitmentDraft {
 export interface Commitment extends CommitmentDraft {
   id: string;
   createdAt: number;
+  /**
+   * The payment checklist: billing month (yyyy-mm) → the day it was ticked
+   * off (yyyy-mm-dd). A month that is absent is unpaid.
+   *
+   * Lives on the saved record, never the draft: the edit form and the pause
+   * toggle both send a draft, so they can't overwrite a tick. Written key by
+   * key (`paid.2026-11`), so two devices ticking different months don't race.
+   */
+  paid: Record<string, string>;
 }
 
 export type Range = "week" | "month" | "all";

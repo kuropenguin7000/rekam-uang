@@ -77,7 +77,8 @@ npm run dev                 # http://localhost:3000
   or the monthly payment), cycle, startDate (yyyy-mm-dd), introAmount +
   introPeriods (promo), tenor (instalments), **schedule** (native map
   `{"yyyy-mm": amount}` — a custom payment plan), category, member, note,
-  active, createdAt. **No composite index** — `listCommitments` deliberately
+  active, **paid** (native map `{"yyyy-mm": "yyyy-mm-dd paid on"}` — the
+  payment checklist; optional, absent on older docs), createdAt. **No composite index** — `listCommitments` deliberately
   has no `orderBy` and sorts client-side, since a household has tens of these.
 - `users/{uid}/transactions/{autoId}`: amount, category (string id — built-in
   or custom `c_*`), **member** (built-in id or custom `m_*`; "" = untagged),
@@ -289,7 +290,23 @@ npm run dev                 # http://localhost:3000
   - **Nothing here writes a transaction.** Static hosting has no cron, and
     materialising charges client-side would double-count across devices — so
     this is a schedule of what *will* be owed, beside the ledger of what *was*
-    spent. Marking a commitment as paid is not implemented.
+    spent. Ticking a bill off is a **checklist, not a ledger entry** — see below.
+  - **Payment checklist** (`MonthDetail` with `checklist`; the screen's
+    "Tagihan {this month}" card and every outlook bar open it, the simulator
+    does not): the whole row is a `role="checkbox"`. `paid` lives on
+    `Commitment`, **never `CommitmentDraft`**, so the edit form and pause
+    toggle (which send drafts) can't clobber it; it is written key by key via
+    `updateDoc(ref, new FieldPath("paid", month), …)` / `deleteField()` so two
+    devices ticking different months don't race. Rules check map + size ≤ 600
+    only; `readPaid()` validates entries (same split as `schedule`).
+    Unpaid rows sort first, but **frozen at open** — re-sorting on tick would
+    move the row under the finger. Due day = startDate's day clamped to the
+    month; a custom schedule has **no** due day (its start is pinned to the
+    1st). **Overdue is current-month only** (an unticked past month usually
+    means "paid, not recorded"). The bell's "unpaid bills" alert counts only
+    commitments that have *ever* been ticked — that is the opt-in, so people
+    who ignore the checklist aren't nagged — and is keyed by day, not count,
+    so ticking one off doesn't log a fresh alert.
 - **Insights**: [InsightsPanel.tsx](src/components/InsightsPanel.tsx) computes
   `generateInsights(transactions, budget, locale)` ([src/lib/insights.ts](src/lib/insights.ts))
   **client-side in a useMemo** — pure rules (spikes, recurring charges, small

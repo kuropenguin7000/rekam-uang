@@ -64,6 +64,14 @@ export function monthLabel(iso: string, locale: Locale): string {
   );
 }
 
+/** "3 Okt" / "3 Oct". */
+export function dayMonthLabel(iso: string, locale: Locale): string {
+  return new Date(iso + "T00:00:00").toLocaleDateString(
+    locale === "id" ? "id-ID" : "en-GB",
+    { day: "numeric", month: "short" }
+  );
+}
+
 export function isSameMonth(a: string, b: string): boolean {
   return a.slice(0, 7) === b.slice(0, 7);
 }
